@@ -1,6 +1,7 @@
 import express from "express";
 import GameServers, { iGameServer } from "../model/gameServers.js";
 import crypto from "crypto";
+import log from '../utilities/structs/log.js';
 
 const app = express.Router();
 
@@ -57,6 +58,7 @@ app.post("/bettermomentum/addserver", async (req, res) => {
             serverId: newServer._id,
             serverSecretKey: serverSecretKey
         });
+        log.backend("Register sucess")
 
     } catch (error) {
         console.error("Server registration error:", error);

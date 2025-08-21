@@ -14,25 +14,30 @@ let buildUniqueId = {};
 
 async function findAvailableServer(playlist: string) {
     try {
-        const servers = await GameServers.find({
-            playlist: playlist,
-            status: 'online',
-            joinable: true,
-            lastHeartbeat: { $gte: new Date(Date.now() - 5 * 60 * 1000) },
-            lastJoinabilityUpdate: { $gte: new Date(Date.now() - 10 * 60 * 1000) }
+        const allServers = await GameServers.find({ playlist: playlist });
+        const now = Date.now();
+        const fiveMinAgo = new Date(now - 5 * 60 * 1000);
+        const tenMinAgo = new Date(now - 10 * 60 * 1000);
+
+        const availableServers = allServers.filter(server => {
+            if (server.status !== 'online') return false;
+            if (!server.joinable) return false;
+            if (!server.lastHeartbeat || server.lastHeartbeat < fiveMinAgo) return false;
+            if (!server.lastJoinabilityUpdate || server.lastJoinabilityUpdate < tenMinAgo) return false;
+            return true;
         });
 
-        if (servers.length === 0) {
+        if (availableServers.length === 0) {
             return null;
         }
 
-        const selectedServer = servers[Math.floor(Math.random() * servers.length)];
+        const selectedServer = availableServers[Math.floor(Math.random() * availableServers.length)];
         return selectedServer;
-    } catch (error) {
-        console.error("Error finding available server:", error);
+    } catch {
         return null;
     }
 }
+
 
 app.get("/fortnite/api/matchmaking/session/findPlayer/*", (req, res) => {
     res.status(200).end();
