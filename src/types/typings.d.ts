@@ -11,12 +11,11 @@ export interface KvType {
 export interface iEnv {
     MONGO_URI: string;
     BOT_TOKEN: string;
+    SERVER_AUTH_KEY: string;
     CLIENT_ID: string;
     GUILD_ID: string;
     NAME: string;
     PORT: number;
-    GAME_SERVERS: string[];
-    ALLOW_REBOOT: boolean;
     MATCHMAKER_IP: string;
     MAIN_SEASON: number;
     USE_S3: boolean;
@@ -26,7 +25,6 @@ export interface iEnv {
     S3_SECRET_ACCESS_KEY: string;
     USE_REDIS: boolean;
     REDIS_URL: string;
-    ENABLE_CROSS_BANS: boolean;
 }
 
 export interface iModules {
@@ -89,9 +87,8 @@ declare global {
         interface ProcessEnv {
             MONGO_URI: string;
             BOT_TOKEN: string;
+            SERVER_AUTH_KEY: string;
             NAME: string;
-            GAME_SERVERS: string;
-            ALLOW_REBOOT: boolean;
             MAIN_SEASON: string;
             MATCHMAKER_IP: string;
             PORT: string;
@@ -102,7 +99,6 @@ declare global {
             S3_SECRET_ACCESS_KEY: string;
             USE_REDIS: boolean;
             REDIS_URL: string;
-            ENABLE_CROSS_BANS: boolean;
             DEBUG_LOG: boolean;
         }
     }

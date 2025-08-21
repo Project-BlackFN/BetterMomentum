@@ -1,12 +1,10 @@
-import { Client, Partials, Collection, Events, GatewayIntentBits, ActivityType, SlashCommandBuilder, GuildBan, BaseInteraction } from 'discord.js';
+import { Client, Partials, Collection, Events, GatewayIntentBits, ActivityType, SlashCommandBuilder, BaseInteraction } from 'discord.js';
 import path from 'node:path';
 import logger from '../utilities/structs/log.js';
 import fs from 'node:fs';
 import Users from '../model/user.js';
 import functions from '../utilities/structs/functions.js';
 import Safety from '../utilities/safety.js';
-
-
 
 export const client: Client = new Client({
 	partials: [Partials.Channel, Partials.Message, Partials.Reaction],
@@ -80,45 +78,6 @@ client.on(Events.InteractionCreate, async (interaction: BaseInteraction) => {
 		} else {
 			await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
 		}
-	}
-});
-
-client.on(Events.GuildBanAdd, async (ban: GuildBan) => {
-	if (!Safety.env.ENABLE_CROSS_BANS) return;
-	const memberBan = await ban.fetch();
-
-	if (memberBan.user.bot) return;
-
-	const userData = await Users.findOne({ discordId: memberBan.user.id });
-
-	if (userData && userData.banned !== true) {
-		await userData.updateOne({ $set: { banned: true } });
-
-		let refreshToken = global.refreshTokens.findIndex(i => i.accountId == userData.accountId);
-		if (refreshToken != -1) global.refreshTokens.splice(refreshToken, 1);
-
-		let accessToken = global.accessTokens.findIndex(i => i.accountId == userData.accountId);
-		if (accessToken != -1) {
-			global.accessTokens.splice(accessToken, 1);
-
-			let xmppClient = global.Clients.find(client => client.accountId == userData.accountId);
-			if (xmppClient) xmppClient.client.close();
-		}
-
-		if (accessToken != -1 || refreshToken != -1) await functions.UpdateTokens();
-		logger.bot(`[BAN] ${memberBan.user.tag} has been banned from the backend since they got banned from the Discord server.`);
-	}
-});
-
-client.on(Events.GuildBanRemove, async (ban: GuildBan) => {
-	if (!Safety.env.ENABLE_CROSS_BANS) return;
-	if (ban.user.bot) return;
-	
-	const userData = await Users.findOne({ discordId: ban.user.id });
-
-	if (userData && userData.banned === true) {
-		await userData.updateOne({ $set: { banned: false } });
-		logger.bot(`[BAN] ${ban.user.tag} has been unbanned from the backend since they got unbanned from the Discord server.`);
 	}
 });
 

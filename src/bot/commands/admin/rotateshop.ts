@@ -1,6 +1,5 @@
 import { ChatInputCommandInteraction, PermissionFlagsBits, SlashCommandBuilder } from "discord.js";
 import Shop from "../../../utilities/shop.js";
-import Safety from "../../../utilities/safety.js";
 
 export const data = new SlashCommandBuilder()
     .setName('rotateshop')
@@ -10,12 +9,6 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
-
-    if(!Safety.env.ENABLE_CLOUD) {
-        return await interaction.editReply({ 
-            content: "This command is disabled because cloud features are disabled. You can enable them by setting ENABLE_CLOUD to true in .env" 
-        }); 
-    }
 
     const shopItems = await Shop.updateShop();
 
