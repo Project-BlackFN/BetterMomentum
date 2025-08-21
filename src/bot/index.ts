@@ -18,12 +18,13 @@ export const client: Client = new Client({
 	],
 	presence: {
 		activities: [{
-			name: 'Momentum',
+			name: process.env.NAME || 'BetterMomentum',
 			type: ActivityType.Playing,
 		}],
 		status: 'online',
 	},
 });
+
 
 global.discordClient = client;
 global.discordApplication = await functions.FetchApplication();
