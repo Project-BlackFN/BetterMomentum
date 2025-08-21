@@ -15,7 +15,7 @@
     "cookie-parser": "^1.4.6",
     "croner": "^6.0.5",
     "destr": "^2.0.0",
-    "dirname-filename-esm": "^1.1.1",
+    "dirname-filename-esm": "^1.1.2",
     "discord.js": "^14.11.0",
     "dotenv": "^16.0.3",
     "escape-string-regexp": "^5.0.0",
