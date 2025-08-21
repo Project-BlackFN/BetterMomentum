@@ -1,10 +1,51 @@
-import express from "express";
-import mongoose from "mongoose";
 import fs from "fs";
 import path from 'path';
+import { dirname } from 'dirname-filename-esm';
+import log from './utilities/structs/log.js';
+
+const __dirname = dirname(import.meta);
+
+const iniPath = path.join(__dirname, "../CloudStorage/DefaultGame.ini");
+const playlists = process.env.PLAYLIST?.split(",").map(p => p.trim());
+
+if (playlists && playlists.length > 0) {
+    let iniContent = fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf-8") : "";
+
+    const sectionHeader = "[/Script/FortniteGame.FortGameInstance]";
+    let sectionIndex = iniContent.indexOf(sectionHeader);
+
+    if (sectionIndex !== -1) { 
+        const beforeSection = iniContent.slice(0, sectionIndex + sectionHeader.length);
+        let sectionContent = iniContent.slice(sectionIndex + sectionHeader.length);
+
+        const lines = sectionContent.split("\n");
+        const clearIndex = lines.findIndex(line => line.trim() === "!FrontEndPlaylistData=ClearArray");
+
+        if (clearIndex !== -1) {
+            let insertIndex = clearIndex + 1;
+            while (insertIndex < lines.length && lines[insertIndex].trim().startsWith("+FrontEndPlaylistData=")) {
+                lines.splice(insertIndex, 1);
+            }
+
+            const newPlaylistLines = playlists.map((playlist, index) =>
+                `+FrontEndPlaylistData=(PlaylistName=${playlist}, PlaylistAccess=(bEnabled=True, bIsDefaultPlaylist=${index === 0}, bVisibleWhenDisabled=false, bDisplayAsNew=false, CategoryIndex=0, bDisplayAsLimitedTime=false, DisplayPriority=${index}))`
+            );
+
+            lines.splice(clearIndex + 1, 0, ...newPlaylistLines);
+
+            sectionContent = lines.join("\n");
+            iniContent = beforeSection + sectionContent;
+            fs.writeFileSync(iniPath, iniContent);
+            log.backend("Playlists replaced under [/Script/FortniteGame.FortGameInstance] in DefaultGame.ini");
+        }
+    }
+}
+
+
+import express from "express";
+import mongoose from "mongoose";
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import rateLimit from "express-rate-limit";
-import { dirname } from 'dirname-filename-esm';
 import destr from "destr";
 
 import { client } from './bot/index.js';
@@ -12,14 +53,13 @@ import kv from './utilities/kv.js';
 import Safety from './utilities/safety.js';
 import functions from "./utilities/structs/functions.js";
 import error from "./utilities/structs/error.js";
-import log from './utilities/structs/log.js';
 import { version } from "./utilities/cron/update.js";
 import serverRegistrationRoutes from "./routes/BetterMomentum_API.js";
-
 import "./utilities/cron/update.js";
 import { DateAddHours } from "./routes/auth.js";
 
-const __dirname = dirname(import.meta);
+const app = express();
+const PORT = Safety.env.PORT;
 
 global.kv = kv;
 global.safety = Safety;
@@ -31,12 +71,8 @@ global.clientTokens = [];
 global.smartXMPP = false;
 global.exchangeCodes = [];
 
-const app = express();
-const PORT = Safety.env.PORT;
-
 await Safety.airbag();
 await client.login(process.env.BOT_TOKEN);
-
 
 let redisTokens: any;
 let tokens: any;
@@ -56,7 +92,6 @@ if (Safety.env.USE_REDIS) {
 for (let tokenType in tokens) {
     for (let tokenIndex in tokens[tokenType]) {
         let decodedToken: JwtPayload = jwt.decode(tokens[tokenType][tokenIndex].token.replace("eg1~", "")) as JwtPayload;
-
         if (DateAddHours(new Date(decodedToken.creation_date), decodedToken.hours_expire).getTime() <= new Date().getTime()) {
             tokens[tokenType].splice(Number(tokenIndex), 1);
         }
@@ -92,7 +127,7 @@ mongoose
 
 (mongoose.connection as any).on("error", (err: Error) => {
     log.error(
-        "MongoDB failed to connect, please make sure you have MongoDB installed and running."
+        "MongoDB failed to connect. Please make sure MongoDB is installed and running."
     );
     throw err;
 });
@@ -135,7 +170,7 @@ app.listen(PORT, () => {
     log.backend(`App started listening on port ${PORT}`);
     import("./xmpp/xmpp.js");
 }).on("error", async (err) => {
-    if (err.message == "EADDRINUSE") {
+    if (err.message === "EADDRINUSE") {
         log.error(`Port ${PORT} is already in use!\nClosing in 3 seconds...`);
         await functions.sleep(3000)
         process.exit(0);
@@ -144,14 +179,13 @@ app.listen(PORT, () => {
 
 const loggedUrls = new Set<string>();
 
-
 app.use((req, res, next) => {
     const url = req.originalUrl;
     if (!loggedUrls.has(url)) {
         log.debug(`Missing endpoint: ${req.method} ${url} request port ${req.socket.localPort}`);
         error.createError(
             "errors.com.epicgames.common.not_found",
-            "Sorry the resource you were trying to find could not be found",
+            "Sorry, the resource you are trying to access could not be found",
             undefined, 1004, undefined, 404, res
         );
     }

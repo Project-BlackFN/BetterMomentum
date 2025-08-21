@@ -16,6 +16,7 @@ export interface iEnv {
     GUILD_ID: string;
     NAME: string;
     PORT: number;
+    PLAYLIST: string[];
     MATCHMAKER_IP: string;
     MAIN_SEASON: number;
     USE_S3: boolean;
@@ -89,6 +90,7 @@ declare global {
             BOT_TOKEN: string;
             SERVER_AUTH_KEY: string;
             NAME: string;
+            PLAYLIST: string;
             MAIN_SEASON: string;
             MATCHMAKER_IP: string;
             PORT: string;

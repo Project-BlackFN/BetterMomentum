@@ -26,6 +26,7 @@ const configSchema = z.object({
     S3_SECRET_ACCESS_KEY: z.string(),
     USE_REDIS: z.boolean(),
     REDIS_URL: z.string(),
+    PLAYLIST: z.string(), // Added PLAYLIST ENV
 });
 
 export class Safety {
@@ -58,6 +59,7 @@ export class Safety {
         S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
         USE_REDIS: this.convertToBool(process.env.USE_REDIS, "USE_REDIS"),
         REDIS_URL: process.env.REDIS_URL,
+        PLAYLIST: process.env.PLAYLIST,
     };
 
     public async airbag(): Promise<boolean> {
