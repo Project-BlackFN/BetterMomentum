@@ -23,7 +23,7 @@ app.post("/bettermomentum/addserver", async (req, res) => {
         const existingServer = await GameServers.findOne({ ip, port, playlist });
 
         if (existingServer) {
-            // Update existing
+            // update server
             existingServer.lastHeartbeat = new Date();
             existingServer.lastJoinabilityUpdate = new Date();
             existingServer.status = "online";
