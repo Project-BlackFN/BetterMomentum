@@ -135,10 +135,9 @@ mongoose
 async function deleteAllGameServers() {
     try {
         const result = await gameServers.deleteMany({});
-        console.log(`Erfolgreich ${result.deletedCount} GameServer-Einträge gelöscht`);
         return result;
     } catch (error) {
-        console.error('Fehler beim Löschen der GameServer-Einträge:', error);
+        console.error('cannot delete gameservers:', error);
         throw error;
     }
 }
