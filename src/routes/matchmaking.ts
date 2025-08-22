@@ -9,6 +9,7 @@ import MMCode from "../model/mmcodes.js";
 import { verifyToken } from "../tokenManager/tokenVerify.js";
 import qs from "qs";
 import error from "../utilities/structs/error.js";
+import log from '../utilities/structs/log.js';
 
 let buildUniqueId = {};
 
@@ -202,7 +203,7 @@ setInterval(async () => {
         );
 
         if (result.modifiedCount > 0) {
-            console.log(`Marked ${result.modifiedCount} servers as offline due to missing heartbeat`);
+            log.warn(`Took down ${result.modifiedCount} server(s) due to inactivity in Heartbeat...`);
         }
     } catch (error) {
         console.error("Cleanup service error:", error);
