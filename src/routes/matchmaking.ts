@@ -9,7 +9,6 @@ import MMCode from "../model/mmcodes.js";
 import { verifyToken } from "../tokenManager/tokenVerify.js";
 import qs from "qs";
 import error from "../utilities/structs/error.js";
-import log from '../utilities/structs/log.js';
 
 let buildUniqueId = {};
 
@@ -39,7 +38,6 @@ async function findAvailableServer(playlist: string) {
     }
 }
 
-
 app.get("/fortnite/api/matchmaking/session/findPlayer/*", (req, res) => {
     res.status(200).end();
 });
@@ -53,24 +51,14 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
     }
 
     const playlist = bucketId.split(":")[3];
-    let selectedServer: { ip: string; port: string; playlist: string } | null = null;
-    const dynamicServer = await findAvailableServer(playlist);
-
-    if (dynamicServer) {
-        selectedServer = {
-            ip: dynamicServer.ip,
-            port: dynamicServer.port.toString(),
-            playlist: dynamicServer.playlist
-        };
-    } else {
-        return error.createError(
-            "errors.com.epicgames.common.matchmaking.no.dynamic.server.found",
-            `No dynamic server found for playlist ${playlist}`,
-            [], 1013, "invalid_playlist", 404, res
-        );
-    }
-
+    
     await global.kv.set(`playerPlaylist:${req.user.accountId}`, playlist);
+    
+    await global.kv.set(`playerMatchmaking:${req.user.accountId}`, JSON.stringify({
+        status: 'searching',
+        playlist: playlist,
+        startedAt: Date.now()
+    }));
 
     if (typeof playerCustomKey == "string") {
         let codeDocument: iMMCodes = await MMCode.findOne({ code_lower: playerCustomKey?.toLowerCase() }) as iMMCodes;
@@ -89,9 +77,11 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         });
 
         await global.kv.set(`playerCustomKey:${req.user.accountId}`, kvDocument);
-    } else {
-        const kvDocument = JSON.stringify(selectedServer);
-        await global.kv.set(`playerServer:${req.user.accountId}`, kvDocument);
+        await global.kv.set(`playerMatchmaking:${req.user.accountId}`, JSON.stringify({
+            status: 'found',
+            playlist: playlist,
+            server: kvDocument
+        }));
     }
 
     if (typeof req.query.bucketId !== "string" || req.query.bucketId.split(":").length !== 4) {
@@ -101,9 +91,19 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
     buildUniqueId[req.user.accountId] = req.query.bucketId.split(":")[0];
 
     const matchmakerIP = Safety.env.MATCHMAKER_IP;
+    
+    const sessionToken = functions.MakeID();
+    
+    await global.kv.set(`matchmakingSession:${sessionToken}`, JSON.stringify({
+        accountId: req.user.accountId,
+        playlist: playlist,
+        timestamp: Date.now()
+    }));
 
     return res.json({
-        "serviceUrl": matchmakerIP.includes("ws") || matchmakerIP.includes("wss") ? matchmakerIP : `ws://${matchmakerIP}`,
+        "serviceUrl": matchmakerIP.includes("ws") || matchmakerIP.includes("wss") 
+            ? `${matchmakerIP}?session=${sessionToken}` 
+            : `ws://${matchmakerIP}?session=${sessionToken}`,
         "ticketType": "mms-player",
         "payload": "account",
         "signature": `${req.user.matchmakingId} ${playlist}`
@@ -197,16 +197,12 @@ app.post("/fortnite/api/matchmaking/session/matchMakingRequest", (req, res) => {
 setInterval(async () => {
     try {
         const cutoffTime = new Date(Date.now() - 10 * 60 * 1000);
-        const result = await GameServers.updateMany(
+        await GameServers.updateMany(
             { lastHeartbeat: { $lt: cutoffTime }, status: 'online' },
             { status: 'offline' }
         );
-
-        if (result.modifiedCount > 0) {
-            log.warn(`Took down ${result.modifiedCount} server(s) due to inactivity in Heartbeat...`);
-        }
-    } catch (error) {
-        console.error("Cleanup service error:", error);
+    } catch {
+        // intentionally silent
     }
 }, 5 * 60 * 1000);
 
