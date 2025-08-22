@@ -2,6 +2,22 @@ import fs from "fs";
 import path from 'path';
 import { dirname } from 'dirname-filename-esm';
 import log from './utilities/structs/log.js';
+import express from "express";
+import mongoose from "mongoose";
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import rateLimit from "express-rate-limit";
+import destr from "destr";
+import { client } from './bot/index.js';
+import kv from './utilities/kv.js';
+import Safety from './utilities/safety.js';
+import functions from "./utilities/structs/functions.js";
+import error from "./utilities/structs/error.js";
+import { version } from "./utilities/cron/update.js";
+import serverRegistrationRoutes from "./routes/BetterMomentum_API.js";
+import "./utilities/cron/update.js";
+import { DateAddHours } from "./routes/auth.js";
+import "./model/gameServers.js";
+import gameServers from "./model/gameServers.js";
 
 const __dirname = dirname(import.meta);
 
@@ -40,23 +56,6 @@ if (playlists && playlists.length > 0) {
         }
     }
 }
-
-
-import express from "express";
-import mongoose from "mongoose";
-import jwt, { JwtPayload } from 'jsonwebtoken';
-import rateLimit from "express-rate-limit";
-import destr from "destr";
-
-import { client } from './bot/index.js';
-import kv from './utilities/kv.js';
-import Safety from './utilities/safety.js';
-import functions from "./utilities/structs/functions.js";
-import error from "./utilities/structs/error.js";
-import { version } from "./utilities/cron/update.js";
-import serverRegistrationRoutes from "./routes/BetterMomentum_API.js";
-import "./utilities/cron/update.js";
-import { DateAddHours } from "./routes/auth.js";
 
 const app = express();
 const PORT = Safety.env.PORT;
@@ -98,6 +97,7 @@ for (let tokenType in tokens) {
     }
 }
 
+
 if (Safety.env.USE_REDIS) {
     await kv.set('tokens', JSON.stringify(tokens, null, 2));
 } else {
@@ -131,6 +131,17 @@ mongoose
     );
     throw err;
 });
+
+async function deleteAllGameServers() {
+    try {
+        const result = await gameServers.deleteMany({});
+        console.log(`Erfolgreich ${result.deletedCount} GameServer-Einträge gelöscht`);
+        return result;
+    } catch (error) {
+        console.error('Fehler beim Löschen der GameServer-Einträge:', error);
+        throw error;
+    }
+}
 
 app.get("/", (req, res) => {
     res.status(200).json({
@@ -191,3 +202,5 @@ app.use((req, res, next) => {
     }
     next();
 });
+
+deleteAllGameServers()
