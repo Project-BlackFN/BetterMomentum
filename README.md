@@ -10,7 +10,7 @@
   - V-Bucks Adder API.. (PROGRESS: 0%)
   - Fixed RotateShop (PROGRESS: 0%)
   - Fixed XMPP (PROGRESS: 0%)
-  - SSL (PROGRESS: 0%)
+  - SSL (PROGRESS: 100%)
 
 
 # Installation
