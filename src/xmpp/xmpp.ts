@@ -24,7 +24,6 @@ let domain = "prod.ol.epicgames.com";
 global.Clients = [];
 global.MUCs = {};
 
-// SSL Setup Function
 function setupSSLForXMPP() {
     const sslDir = path.join(__dirname, "../../ssl");
     

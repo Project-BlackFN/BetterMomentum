@@ -213,7 +213,6 @@ const importRoutes = async (dir) => {
 await importRoutes("routes");
 await importRoutes("api");
 
-// SSL Setup und Server Start
 const sslOptions = setupSSL();
 
 if (sslOptions) {
