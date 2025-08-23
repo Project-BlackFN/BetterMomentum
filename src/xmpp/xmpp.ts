@@ -11,7 +11,7 @@ import functions from "../utilities/structs/functions.js";
 import User from "../model/user.js";
 import Friends from "../model/friends.js";
 
-const port = 80;
+const port = 4309;
 const wss = new WebSocketServer({ server: app.listen(port) });
 import matchmaker from "../matchmaker/matchmaker.js";
 import { RawData } from "ws";

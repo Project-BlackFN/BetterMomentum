@@ -20,42 +20,8 @@ import "./model/gameServers.js";
 import gameServers from "./model/gameServers.js";
 
 const __dirname = dirname(import.meta);
-
 const iniPath = path.join(__dirname, "../CloudStorage/DefaultGame.ini");
 const playlists = process.env.PLAYLIST?.split(",").map(p => p.trim());
-
-if (playlists && playlists.length > 0) {
-    let iniContent = fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf-8") : "";
-
-    const sectionHeader = "[/Script/FortniteGame.FortGameInstance]";
-    let sectionIndex = iniContent.indexOf(sectionHeader);
-
-    if (sectionIndex !== -1) { 
-        const beforeSection = iniContent.slice(0, sectionIndex + sectionHeader.length);
-        let sectionContent = iniContent.slice(sectionIndex + sectionHeader.length);
-
-        const lines = sectionContent.split("\n");
-        const clearIndex = lines.findIndex(line => line.trim() === "!FrontEndPlaylistData=ClearArray");
-
-        if (clearIndex !== -1) {
-            let insertIndex = clearIndex + 1;
-            while (insertIndex < lines.length && lines[insertIndex].trim().startsWith("+FrontEndPlaylistData=")) {
-                lines.splice(insertIndex, 1);
-            }
-
-            const newPlaylistLines = playlists.map((playlist, index) =>
-                `+FrontEndPlaylistData=(PlaylistName=${playlist}, PlaylistAccess=(bEnabled=True, bIsDefaultPlaylist=${index === 0}, bVisibleWhenDisabled=false, bDisplayAsNew=false, CategoryIndex=0, bDisplayAsLimitedTime=false, DisplayPriority=${index}))`
-            );
-
-            lines.splice(clearIndex + 1, 0, ...newPlaylistLines);
-
-            sectionContent = lines.join("\n");
-            iniContent = beforeSection + sectionContent;
-            fs.writeFileSync(iniPath, iniContent);
-            log.backend("Playlists replaced under [/Script/FortniteGame.FortGameInstance] in DefaultGame.ini");
-        }
-    }
-}
 
 const app = express();
 const PORT = Safety.env.PORT;
@@ -108,6 +74,39 @@ if (!tokens || !tokens.accessTokens) {
     console.log("No access tokens found, resetting tokens.json");
     await kv.set('tokens', fs.readFileSync(path.join(__dirname, "../tokens.json")).toString());
     tokens = destr(fs.readFileSync(path.join(__dirname, "../tokens.json")).toString());
+}
+
+if (playlists && playlists.length > 0) {
+    let iniContent = fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf-8") : "";
+
+    const sectionHeader = "[/Script/FortniteGame.FortGameInstance]";
+    let sectionIndex = iniContent.indexOf(sectionHeader);
+
+    if (sectionIndex !== -1) { 
+        const beforeSection = iniContent.slice(0, sectionIndex + sectionHeader.length);
+        let sectionContent = iniContent.slice(sectionIndex + sectionHeader.length);
+
+        const lines = sectionContent.split("\n");
+        const clearIndex = lines.findIndex(line => line.trim() === "!FrontEndPlaylistData=ClearArray");
+
+        if (clearIndex !== -1) {
+            let insertIndex = clearIndex + 1;
+            while (insertIndex < lines.length && lines[insertIndex].trim().startsWith("+FrontEndPlaylistData=")) {
+                lines.splice(insertIndex, 1);
+            }
+
+            const newPlaylistLines = playlists.map((playlist, index) =>
+                `+FrontEndPlaylistData=(PlaylistName=${playlist}, PlaylistAccess=(bEnabled=True, bIsDefaultPlaylist=${index === 0}, bVisibleWhenDisabled=false, bDisplayAsNew=false, CategoryIndex=0, bDisplayAsLimitedTime=false, DisplayPriority=${index}))`
+            );
+
+            lines.splice(clearIndex + 1, 0, ...newPlaylistLines);
+
+            sectionContent = lines.join("\n");
+            iniContent = beforeSection + sectionContent;
+            fs.writeFileSync(iniPath, iniContent);
+            log.backend("Playlists added!");
+        }
+    }
 }
 
 global.accessTokens = tokens.accessTokens;
