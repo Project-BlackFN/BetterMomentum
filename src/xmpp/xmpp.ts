@@ -1,9 +1,14 @@
-
 import {WebSocketServer} from 'ws'
 import XMLBuilder from "xmlbuilder";
 import XMLParser from "xml-parser";
 import express from "express";
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { dirname } from 'dirname-filename-esm';
+
 const app = express();
+const __dirname = dirname(import.meta);
 
 import logger from "../utilities/structs/log.js";
 import functions from "../utilities/structs/functions.js";
@@ -11,17 +16,57 @@ import functions from "../utilities/structs/functions.js";
 import User from "../model/user.js";
 import Friends from "../model/friends.js";
 
-const port = 4309;
-const wss = new WebSocketServer({ server: app.listen(port) });
 import matchmaker from "../matchmaker/matchmaker.js";
 import { RawData } from "ws";
 
 let domain = "prod.ol.epicgames.com";
 
 global.Clients = [];
-
-// multi user chat rooms (global chat/party chat)
 global.MUCs = {};
+
+// SSL Setup Function
+function setupSSLForXMPP() {
+    const sslDir = path.join(__dirname, "../../ssl");
+    
+    const certNames = [
+        { cert: 'certificate.crt', key: 'private.key', ca: 'ca_bundle.crt' },
+        { cert: 'server.crt', key: 'server.key', ca: 'ca.crt' },
+        { cert: 'cert.pem', key: 'key.pem', ca: 'chain.pem' },
+        { cert: 'fullchain.pem', key: 'privkey.pem', ca: null },
+        { cert: 'ssl.crt', key: 'ssl.key', ca: 'intermediate.crt' }
+    ];
+
+    if (!fs.existsSync(sslDir)) {
+        return null;
+    }
+
+    for (const certConfig of certNames) {
+        const certPath = path.join(sslDir, certConfig.cert);
+        const keyPath = path.join(sslDir, certConfig.key);
+        const caPath = certConfig.ca ? path.join(sslDir, certConfig.ca) : null;
+
+        if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+            try {
+                const sslOptions: https.ServerOptions = {
+                    cert: fs.readFileSync(certPath, 'utf8'),
+                    key: fs.readFileSync(keyPath, 'utf8')
+                };
+
+                if (caPath && fs.existsSync(caPath)) {
+                    sslOptions.ca = fs.readFileSync(caPath, 'utf8');
+                }
+
+                return sslOptions;
+            } catch (error) {
+                continue;
+            }
+        }
+    }
+
+    return null;
+}
+
+const port = 4309;
 
 app.get("/", (req, res) => {
     res.type("application/json");
@@ -48,14 +93,32 @@ app.get("/clients", (req, res) => {
     res.send(data);
 });
 
-wss.on('listening', () => {
-    logger.xmpp(`XMPP and Matchmaker started listening on port ${port}`);
-});
+// SSL
+const sslOptions = setupSSLForXMPP();
+
+let server;
+let wss;
+
+if (sslOptions) {
+    server = https.createServer(sslOptions, app);
+    wss = new WebSocketServer({ server: server });
+    
+    server.listen(port, () => {
+        logger.xmpp(`XMPP and Matchmaker started listening on port ${port} (SSL)`);
+    });
+    
+} else {
+    server = app.listen(port);
+    wss = new WebSocketServer({ server: server });
+    
+    server.on('listening', () => {
+        logger.xmpp(`XMPP and Matchmaker started listening on port ${port} (no SSL)`);
+    });
+}
 
 wss.on('connection', async (ws, req) => {
     ws.on('error', () => { });
 
-    // Start matchmaker if it's not connecting for xmpp.
     if (ws.protocol.toLowerCase() != "xmpp" || req.url === "/matchmaker") return matchmaker.server(ws, req);
 
     let joinedMUCs: [] = [];

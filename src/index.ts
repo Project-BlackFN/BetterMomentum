@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from 'path';
+import https from 'https';
 import { dirname } from 'dirname-filename-esm';
 import log from './utilities/structs/log.js';
 import express from "express";
@@ -20,8 +21,86 @@ import "./model/gameServers.js";
 import gameServers from "./model/gameServers.js";
 
 const __dirname = dirname(import.meta);
+
+// SSL
+function setupSSL() {
+    const sslDir = path.join(__dirname, "../ssl");
+    
+    const certNames = [
+        { cert: 'certificate.crt', key: 'private.key', ca: 'ca_bundle.crt' },
+        { cert: 'server.crt', key: 'server.key', ca: 'ca.crt' },
+        { cert: 'cert.pem', key: 'key.pem', ca: 'chain.pem' },
+        { cert: 'fullchain.pem', key: 'privkey.pem', ca: null },
+        { cert: 'ssl.crt', key: 'ssl.key', ca: 'intermediate.crt' }
+    ];
+
+    if (!fs.existsSync(sslDir)) {
+        log.backend("running HTTP only bc no ssl folder was found..");
+        return null;
+    }
+
+    for (const certConfig of certNames) {
+        const certPath = path.join(sslDir, certConfig.cert);
+        const keyPath = path.join(sslDir, certConfig.key);
+        const caPath = certConfig.ca ? path.join(sslDir, certConfig.ca) : null;
+
+        if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+            try {
+                const sslOptions: https.ServerOptions = {
+                    cert: fs.readFileSync(certPath, 'utf8'),
+                    key: fs.readFileSync(keyPath, 'utf8')
+                };
+
+                if (caPath && fs.existsSync(caPath)) {
+                    sslOptions.ca = fs.readFileSync(caPath, 'utf8');
+                    log.backend(`SSL certificates loaded with CA bundle: ${certConfig.cert}, ${certConfig.key}, ${certConfig.ca}`);
+                } else {
+                    log.backend(`SSL certificates loaded: ${certConfig.cert}, ${certConfig.key}`);
+                }
+
+                return sslOptions;
+            } catch (error) {
+                continue;
+            }
+        }
+    }
+
+    log.backend("running HTTP only bc no certificates were found.");
+    return null;
+}
+
 const iniPath = path.join(__dirname, "../CloudStorage/DefaultGame.ini");
 const playlists = process.env.PLAYLIST?.split(",").map(p => p.trim());
+
+if (playlists && playlists.length > 0) {
+    let iniContent = fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf-8") : "";
+    const sectionHeader = "[/Script/FortniteGame.FortGameInstance]";
+    let sectionIndex = iniContent.indexOf(sectionHeader);
+
+    if (sectionIndex !== -1) { 
+        const beforeSection = iniContent.slice(0, sectionIndex + sectionHeader.length);
+        let sectionContent = iniContent.slice(sectionIndex + sectionHeader.length);
+        const lines = sectionContent.split("\n");
+        const clearIndex = lines.findIndex(line => line.trim() === "!FrontEndPlaylistData=ClearArray");
+
+        if (clearIndex !== -1) {
+            let insertIndex = clearIndex + 1;
+            while (insertIndex < lines.length && lines[insertIndex].trim().startsWith("+FrontEndPlaylistData=")) {
+                lines.splice(insertIndex, 1);
+            }
+
+            const newPlaylistLines = playlists.map((playlist, index) =>
+                `+FrontEndPlaylistData=(PlaylistName=${playlist}, PlaylistAccess=(bEnabled=True, bIsDefaultPlaylist=${index === 0}, bVisibleWhenDisabled=false, bDisplayAsNew=false, CategoryIndex=0, bDisplayAsLimitedTime=false, DisplayPriority=${index}))`
+            );
+
+            lines.splice(clearIndex + 1, 0, ...newPlaylistLines);
+            sectionContent = lines.join("\n");
+            iniContent = beforeSection + sectionContent;
+            fs.writeFileSync(iniPath, iniContent);
+            log.backend("Playlists replaced under [/Script/FortniteGame.FortGameInstance] in DefaultGame.ini");
+        }
+    }
+}
 
 const app = express();
 const PORT = Safety.env.PORT;
@@ -63,7 +142,6 @@ for (let tokenType in tokens) {
     }
 }
 
-
 if (Safety.env.USE_REDIS) {
     await kv.set('tokens', JSON.stringify(tokens, null, 2));
 } else {
@@ -76,39 +154,6 @@ if (!tokens || !tokens.accessTokens) {
     tokens = destr(fs.readFileSync(path.join(__dirname, "../tokens.json")).toString());
 }
 
-if (playlists && playlists.length > 0) {
-    let iniContent = fs.existsSync(iniPath) ? fs.readFileSync(iniPath, "utf-8") : "";
-
-    const sectionHeader = "[/Script/FortniteGame.FortGameInstance]";
-    let sectionIndex = iniContent.indexOf(sectionHeader);
-
-    if (sectionIndex !== -1) { 
-        const beforeSection = iniContent.slice(0, sectionIndex + sectionHeader.length);
-        let sectionContent = iniContent.slice(sectionIndex + sectionHeader.length);
-
-        const lines = sectionContent.split("\n");
-        const clearIndex = lines.findIndex(line => line.trim() === "!FrontEndPlaylistData=ClearArray");
-
-        if (clearIndex !== -1) {
-            let insertIndex = clearIndex + 1;
-            while (insertIndex < lines.length && lines[insertIndex].trim().startsWith("+FrontEndPlaylistData=")) {
-                lines.splice(insertIndex, 1);
-            }
-
-            const newPlaylistLines = playlists.map((playlist, index) =>
-                `+FrontEndPlaylistData=(PlaylistName=${playlist}, PlaylistAccess=(bEnabled=True, bIsDefaultPlaylist=${index === 0}, bVisibleWhenDisabled=false, bDisplayAsNew=false, CategoryIndex=0, bDisplayAsLimitedTime=false, DisplayPriority=${index}))`
-            );
-
-            lines.splice(clearIndex + 1, 0, ...newPlaylistLines);
-
-            sectionContent = lines.join("\n");
-            iniContent = beforeSection + sectionContent;
-            fs.writeFileSync(iniPath, iniContent);
-            log.backend("Playlists added!");
-        }
-    }
-}
-
 global.accessTokens = tokens.accessTokens;
 global.refreshTokens = tokens.refreshTokens;
 global.clientTokens = tokens.clientTokens;
@@ -117,17 +162,11 @@ mongoose.set("strictQuery", true);
 
 mongoose
     .connect(Safety.env.MONGO_URI)
-    .then(() => {
-        log.backend("Connected to MongoDB");
-    })
-    .catch((error) => {
-        console.error("Error connecting to MongoDB: ", error);
-    });
+    .then(() => log.backend("Connected to MongoDB"))
+    .catch((error) => console.error("Error connecting to MongoDB: ", error));
 
 (mongoose.connection as any).on("error", (err: Error) => {
-    log.error(
-        "MongoDB failed to connect. Please make sure MongoDB is installed and running."
-    );
+    log.error("MongoDB failed to connect. Please make sure MongoDB is installed and running.");
     throw err;
 });
 
@@ -152,12 +191,12 @@ app.get("/", (req, res) => {
         arch: process.arch,
         cpuUsage: process.cpuUsage(),
         environment: process.env.NODE_ENV,
+        ssl: !!setupSSL()
     });
 });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(serverRegistrationRoutes);
 
 const importRoutes = async (dir) => {
@@ -166,7 +205,7 @@ const importRoutes = async (dir) => {
         try {
             app.use((await import(`file://${__dirname}/${dir}/${fileName}`)).default);
         } catch (error) {
-            console.log(fileName, error)
+            console.log(fileName, error);
         }
     }
 };
@@ -174,16 +213,36 @@ const importRoutes = async (dir) => {
 await importRoutes("routes");
 await importRoutes("api");
 
-app.listen(PORT, () => {
-    log.backend(`App started listening on port ${PORT}`);
-    import("./xmpp/xmpp.js");
-}).on("error", async (err) => {
-    if (err.message === "EADDRINUSE") {
-        log.error(`Port ${PORT} is already in use!\nClosing in 3 seconds...`);
-        await functions.sleep(3000)
-        process.exit(0);
-    } else throw err;
-});
+// SSL Setup und Server Start
+const sslOptions = setupSSL();
+
+if (sslOptions) {
+    const httpsServer = https.createServer(sslOptions, app);
+    httpsServer.listen(PORT, () => {
+        log.backend(`Backend is running on Port ${PORT} (SSL)`);
+        import("./xmpp/xmpp.js");
+    }).on("error", async (err: any) => {
+        if (err.code === "EADDRINUSE") {
+            log.error(`Port ${PORT} is already in use!\nClosing in 3 seconds...`);
+            await functions.sleep(3000);
+            process.exit(0);
+        } else {
+            log.error(`HTTPS Server error: ${err.message}`);
+            throw err;
+        }
+    });
+} else {
+    app.listen(PORT, () => {
+        log.backend(`Backend is running on Port ${PORT} (no SSL)`);
+        import("./xmpp/xmpp.js");
+    }).on("error", async (err: any) => {
+        if (err.code === "EADDRINUSE") {
+            log.error(`Port ${PORT} is already in use!\nClosing in 3 seconds...`);
+            await functions.sleep(3000);
+            process.exit(0);
+        } else throw err;
+    });
+}
 
 const loggedUrls = new Set<string>();
 
@@ -200,4 +259,4 @@ app.use((req, res, next) => {
     next();
 });
 
-deleteAllGameServers()
+deleteAllGameServers();
