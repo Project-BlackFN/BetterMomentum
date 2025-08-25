@@ -2,8 +2,8 @@ import { ChatInputCommandInteraction, PermissionFlagsBits, SlashCommandBuilder }
 import Shop from "../../../utilities/shop.js";
 
 export const data = new SlashCommandBuilder()
-    .setName('rotateshop')
-    .setDescription('Rotates the shop')
+    .setName("rotateshop")
+    .setDescription("Rotates the shop")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false);
 
@@ -12,10 +12,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const shopItems = await Shop.updateShop();
 
-    if(shopItems[0] === false) {
+    if (!shopItems.length) {
         return await interaction.editReply({ 
-            content: "This command is disabled as it's only available to users that bought the Auto Rotate module. To purchase it, join https://discord.gg/NexusFN." 
+            content: "No bro.." 
         });
     }
+
     await interaction.editReply({ content: "The shop has been rotated." });
 }
