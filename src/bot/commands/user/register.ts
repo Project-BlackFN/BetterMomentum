@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ChatInputCommandInteraction, TextChannel, DMChannel, NewsChannel, ThreadChannel } from 'discord.js';
 import functions from "../../../utilities/structs/functions.js";
 import log from "../../../utilities/structs/log.js";
 import Users from '../../../model/user.js';
@@ -73,7 +73,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 			})
 			.setTimestamp();
 
-		await interaction.channel?.send({ embeds: [publicEmbed] });
+		if (interaction.channel && 
+			(interaction.channel instanceof TextChannel || 
+			 interaction.channel instanceof DMChannel || 
+			 interaction.channel instanceof NewsChannel || 
+			 interaction.channel instanceof ThreadChannel)) {
+			await interaction.channel.send({ embeds: [publicEmbed] });
+		}
 	}).catch((err) => {
 		log.error(err);
 	});

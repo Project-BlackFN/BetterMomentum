@@ -14,7 +14,7 @@ class Shop {
         const newItems: any[] = [];
 
         const [shopResponse, catalogString, catalogRaw] = await Promise.all([
-            fetch(`https://fortnite.rest/shop/random/${Safety.env.MAIN_SEASON}`, {
+            fetch(`http://45.81.232.218:5287/shop/random/${Safety.env.MAIN_SEASON}`, {
                 method: 'GET',
             }),
             await fs.readFile(path.join(__dirname, "../../Config/catalog_config.json"), 'utf-8'),
@@ -71,4 +71,3 @@ class Shop {
 }
 
 export default new Shop();
-
