@@ -1,7 +1,7 @@
 import axios from "axios";
 import fs from "fs/promises";
 import path from "path";
-import Safety from "./safety";
+import Safety from "./safety.js";
 
 interface CosmeticItem {
     name: string;
