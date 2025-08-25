@@ -1,73 +1,92 @@
-import fs from 'fs/promises';
-import path from 'path';
-import Safety from './safety.js';
-import { dirname } from 'dirname-filename-esm'
-import { ShopResponse } from '../types/typings';
+import axios from "axios";
+import fs from "fs/promises";
+import path from "path";
+import Safety from "./safety";
 
-const __dirname = dirname(import.meta)
-
-//I'll make it not write to file later, icba for now
-
-class Shop {
-
-    public async updateShop(): Promise<ShopResponse[] | boolean[]> {
-        const newItems: any[] = [];
-
-        const [shopResponse, catalogString, catalogRaw] = await Promise.all([
-            fetch(`http://45.81.232.218:5287/shop/random/${Safety.env.MAIN_SEASON}`, {
-                method: 'GET',
-            }),
-            await fs.readFile(path.join(__dirname, "../../Config/catalog_config.json"), 'utf-8'),
-            await fs.readFile(path.join(__dirname, "../../responses/catalog.json"), 'utf-8')
-        ]);
-
-        if (!shopResponse) return [];
-
-        const shopJSON = await shopResponse.json();
-
-        if (shopJSON.error) {
-            if (shopJSON.error === "Module shop not enabled for this loopkey") {
-                return [false];
-            }
-        }
-
-        const dailyItems = shopJSON.daily;
-        const featuredItems = shopJSON.featured;
-        const catalog = JSON.parse(catalogString);
-        const catalogRawJSON = JSON.parse(catalogRaw);
-
-        for (const [i, dailyItem] of dailyItems.entries()) {
-            const { shopName, price } = dailyItem;
-
-            catalog[`daily${i + 1}`].price = price;
-            catalog[`daily${i + 1}`].itemGrants = [shopName];
-
-            newItems.push(dailyItem);
-        }
-
-        for (const [i, featuredItem] of featuredItems.entries()) {
-            const { shopName, price } = featuredItem;
-
-            catalog[`featured${i + 1}`].price = price;
-            catalog[`featured${i + 1}`].itemGrants = [shopName];
-
-            newItems.push(featuredItem);
-        }
-
-        const todayAtMidnight = new Date();
-        todayAtMidnight.setHours(24, 0, 0, 0)
-        const todayOneMinuteBeforeMidnight = new Date(todayAtMidnight.getTime() - 60000);
-        const isoDate = todayOneMinuteBeforeMidnight.toISOString();
-
-        catalogRawJSON.expiration = isoDate
-
-        await Promise.all([
-            fs.writeFile(path.join(__dirname, "../../Config/catalog_config.json"), JSON.stringify(catalog, null, 4)),
-            fs.writeFile(path.join(__dirname, "../../responses/catalog.json"), JSON.stringify(catalogRawJSON, null, 4))
-        ]);
-
-        return newItems;
-    }
+interface CosmeticItem {
+    name: string;
+    type: { value: string };
+    rarity: { value: string };
+    series?: { value: string };
+    images: { icon: string };
+    id: string;
 }
 
-export default new Shop();
+interface ItemGrant {
+    templateId: string;
+    quantity: number;
+}
+
+interface ShopItem {
+    itemGrants: ItemGrant[];
+    price: { regularPrice: number; finalPrice: number };
+    shopName: string;
+}
+
+export default class Shop {
+    private static catalogConfigPath = path.join(process.cwd(), "catalog_config.json");
+
+    private static getPrice(rarity: string, series?: string): number {
+        if (series) {
+            if (series === "MarvelSeries" || series === "DCUSeries" || series === "StarWarsSeries") {
+                return 1500;
+            }
+            if (series === "CreatorCollabSeries") {
+                return 2000;
+            }
+            return 1200;
+        }
+        switch (rarity) {
+            case "legendary":
+                return 2000;
+            case "epic":
+                return 1500;
+            case "rare":
+                return 1200;
+            case "uncommon":
+                return 800;
+            default:
+                return 500;
+        }
+    }
+
+    private static shuffle<T>(arr: T[]): T[] {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    private static pickRandom<T>(arr: T[], count: number): T[] {
+        return Shop.shuffle(arr).slice(0, count);
+    }
+
+    public static async updateShop(): Promise<ShopItem[]> {
+        const { data } = await axios.get("https://fortnite-api.com/v2/cosmetics/br");
+        const items: CosmeticItem[] = data.data;
+
+        const maxSeason = Safety.env.MAIN_SEASON;
+        const filtered = items.filter(
+            (item) =>
+                item.type.value !== "emote" &&
+                item.rarity.value !== "frozen" &&
+                !item.name.toLowerCase().includes("banner") &&
+                parseInt(item.id.split("_")[1]) <= maxSeason
+        );
+
+        const featured = Shop.pickRandom(filtered, 8).map<ShopItem>((item) => ({
+            itemGrants: [{ templateId: `AthenaCharacter:${item.id}`, quantity: 1 }],
+            price: { regularPrice: Shop.getPrice(item.rarity.value, item.series?.value), finalPrice: Shop.getPrice(item.rarity.value, item.series?.value) },
+            shopName: item.name
+        }));
+
+        const daily = Shop.pickRandom(filtered, 6).map<ShopItem>((item) => ({
+            itemGrants: [{ templateId: `AthenaCharacter:${item.id}`, quantity: 1 }],
+            price: { regularPrice: Shop.getPrice(item.rarity.value, item.series?.value), finalPrice: Shop.getPrice(item.rarity.value, item.series?.value) },
+            shopName: item.name
+        }));
+
+        const finalShop = [...featured, ...daily];
+
+        await fs.writeFile(Shop.catalogConfigPath, JSON.stringify(finalShop, null, 2), "utf8");
+
+        return finalShop;
+    }
+}
