@@ -62,24 +62,44 @@ export default class Shop {
         const { data } = await axios.get("https://fortnite-api.com/v2/cosmetics/br");
         const items: CosmeticItem[] = data.data;
 
-        const maxSeason = Safety.env.MAIN_SEASON;
-        const filtered = items.filter(
-            (item) =>
-                item.type.value !== "emote" &&
-                item.rarity.value !== "frozen" &&
-                !item.name.toLowerCase().includes("banner") &&
-                parseInt(item.id.split("_")[1]) <= maxSeason
-        );
+        const maxSeason = Number(Safety.env.MAIN_SEASON);
+        if (!Number.isFinite(maxSeason)) {
+            throw new Error("MAIN_SEASON is not a valid number");
+        }
+
+        const filtered = items.filter((item) => {
+            if (
+                item.type.value === "emote" ||
+                item.rarity.value === "frozen" ||
+                item.name.toLowerCase().includes("banner")
+            ) {
+                return false;
+            }
+
+            const parts = item.id.split("_");
+            const seasonPart = parseInt(parts[1] ?? "", 10);
+
+            // If ID doesn't have a numeric part, skip
+            if (!Number.isFinite(seasonPart)) return false;
+
+            return seasonPart <= maxSeason;
+        });
 
         const featured = Shop.pickRandom(filtered, 8).map<ShopItem>((item) => ({
             itemGrants: [{ templateId: `AthenaCharacter:${item.id}`, quantity: 1 }],
-            price: { regularPrice: Shop.getPrice(item.rarity.value, item.series?.value), finalPrice: Shop.getPrice(item.rarity.value, item.series?.value) },
+            price: {
+                regularPrice: Shop.getPrice(item.rarity.value, item.series?.value),
+                finalPrice: Shop.getPrice(item.rarity.value, item.series?.value)
+            },
             shopName: item.name
         }));
 
         const daily = Shop.pickRandom(filtered, 6).map<ShopItem>((item) => ({
             itemGrants: [{ templateId: `AthenaCharacter:${item.id}`, quantity: 1 }],
-            price: { regularPrice: Shop.getPrice(item.rarity.value, item.series?.value), finalPrice: Shop.getPrice(item.rarity.value, item.series?.value) },
+            price: {
+                regularPrice: Shop.getPrice(item.rarity.value, item.series?.value),
+                finalPrice: Shop.getPrice(item.rarity.value, item.series?.value)
+            },
             shopName: item.name
         }));
 
