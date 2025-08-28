@@ -144,4 +144,55 @@ app.get("/bettermomentum/serverlist", async (_req, res) => {
     }
 });
 
+app.get("/bettermomentum/matchmaker/serverInfo", async (_req, res) => {
+    try {
+        const keys: string[] = await global.kv.keys("playerMatchmaking:*");
+        const playerStates: { playlist: string }[] = [];
+
+        for (const key of keys) {
+            const value = await global.kv.get(key);
+            if (!value) continue;
+            const parsed = JSON.parse(value);
+            if (parsed.status === "searching" && parsed.playlist) {
+                playerStates.push({ playlist: parsed.playlist });
+            }
+        }
+
+        if (playerStates.length === 0) {
+            return res.json({ server_scaling_required: false, gamemode: null });
+        }
+
+        const playlistCounts: Record<string, number> = {};
+        for (const state of playerStates) {
+            playlistCounts[state.playlist] = (playlistCounts[state.playlist] || 0) + 1;
+        }
+
+        const topGamemode = Object.entries(playlistCounts)
+            .sort((a, b) => b[1] - a[1])[0][0];
+
+        const servers = await GameServers.find({ playlist: topGamemode });
+        const now = Date.now();
+        const fiveMinAgo = new Date(now - 5 * 60 * 1000);
+        const tenMinAgo = new Date(now - 10 * 60 * 1000);
+
+        const availableServers = servers.filter(server => {
+            if (server.status !== "online") return false;
+            if (!server.joinable) return false;
+            if (!server.lastHeartbeat || server.lastHeartbeat < fiveMinAgo) return false;
+            if (!server.lastJoinabilityUpdate || server.lastJoinabilityUpdate < tenMinAgo) return false;
+            return true;
+        });
+
+        const scalingRequired = availableServers.length === 0;
+
+        return res.json({
+            server_scaling_required: scalingRequired,
+            gamemode: topGamemode,
+        });
+    } catch (error) {
+        console.error("serverInfo error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 export default app;
