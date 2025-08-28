@@ -13,9 +13,9 @@ import error from "../utilities/structs/error.js";
 let buildUniqueId = {};
 
 const PLAYLIST_MAP: Record<string, string> = { // for very old Builds under the Version S5
-    "2": "Playlist_DefaultSolo",
-    "10": "Playlist_DefaultDuo",
-    "9": "Playlist_DefaultSquad"
+    "2": "playlist_defaultsolo",
+    "10": "playlist_defaultduo",
+    "9": "playlist_defaultsquad"
 };
 
 function resolvePlaylist(playlist: string): string {

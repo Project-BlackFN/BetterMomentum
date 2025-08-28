@@ -3,9 +3,9 @@ import { WebSocket } from "ws";
 import GameServers from "../model/gameServers.js";
 
 const PLAYLIST_MAP: Record<string, string> = {
-    "2": "Playlist_DefaultSolo",
-    "10": "Playlist_DefaultDuo",
-    "9": "Playlist_DefaultSquad"
+    "2": "playlist_defaultsolo",
+    "10": "playlist_defaultduo",
+    "9": "playlist_defaultsquad"
 };
 
 function resolvePlaylist(playlist: string): string {
