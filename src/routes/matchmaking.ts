@@ -12,7 +12,6 @@ import error from "../utilities/structs/error.js";
 
 let buildUniqueId = {};
 
-// Helper functions for managing searching players counter
 async function addSearchingPlayer(playlist: string) {
     try {
         const currentData = await global.kv.get("matchmaking:searching");

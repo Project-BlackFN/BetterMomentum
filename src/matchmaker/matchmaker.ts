@@ -2,7 +2,6 @@ import functions from "../utilities/structs/functions.js";
 import { WebSocket } from "ws";
 import GameServers from "../model/gameServers.js";
 
-// Helper function to remove searching player from counter
 async function removeSearchingPlayer(playlist: string) {
     try {
         const currentData = await global.kv.get("matchmaking:searching");
@@ -23,7 +22,6 @@ async function removeSearchingPlayer(playlist: string) {
     }
 }
 
-// Helper function to add searching player to counter
 async function addSearchingPlayer(playlist: string) {
     try {
         const currentData = await global.kv.get("matchmaking:searching");
@@ -141,7 +139,6 @@ class matchmaker {
                 matchmaker.serverCheckIntervals.delete(intervalKey);
             }
             
-            // Remove player from searching counter when they disconnect
             if (playlist && accountId) {
                 this.removeSearchingPlayerIfNeeded(accountId, playlist);
             }
@@ -287,8 +284,6 @@ class matchmaker {
             console.error("Error in addSearchingPlayerIfNeeded:", error);
         }
     }
-
-    // Helper method to remove player from searching counter
     private async removeSearchingPlayerIfNeeded(accountId: string, playlist: string) {
         try {
             const playerKey = `playerInSearchCounter:${accountId}`;

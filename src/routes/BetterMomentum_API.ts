@@ -146,7 +146,6 @@ app.get("/bettermomentum/serverlist", async (_req, res) => {
 
 app.get("/bettermomentum/matchmaker/serverInfo", async (_req, res) => {
     try {
-        // Get the current searching players data
         const searchingData = await global.kv.get("matchmaking:searching");
         
         if (!searchingData) {
@@ -163,7 +162,6 @@ app.get("/bettermomentum/matchmaker/serverInfo", async (_req, res) => {
 
         const topGamemode = entries.sort((a: any, b: any) => b[1] - a[1])[0][0];
 
-        // Check if we have available servers for this gamemode
         const servers = await GameServers.find({ playlist: topGamemode });
         const now = Date.now();
         const fiveMinAgo = new Date(now - 5 * 60 * 1000);

@@ -20,6 +20,15 @@ class KV {
         const set = Safety.env.USE_REDIS ? await redis?.set(key, value, 'EX', ttl) : await memkv.set(key, value, ttl);
         return set === 'OK';
     }
+
+    async delete(key: string): Promise<boolean> {
+        if (Safety.env.USE_REDIS && redis) {
+            const result = await redis.del(key);
+            return result > 0;
+        } else {
+            return await memkv.delete(key);
+        }
+    }
 }
 
 export default new KV();
