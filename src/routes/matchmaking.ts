@@ -12,7 +12,18 @@ import error from "../utilities/structs/error.js";
 
 let buildUniqueId = {};
 
+const PLAYLIST_MAP: Record<string, string> = { // for very old Builds under the Version S5
+    "2": "Playlist_DefaultSolo",
+    "10": "Playlist_DefaultDuo",
+    "9": "Playlist_DefaultSquad"
+};
+
+function resolvePlaylist(playlist: string): string {
+    return PLAYLIST_MAP[playlist] || playlist;
+}
+
 async function addSearchingPlayer(playlist: string) {
+    playlist = resolvePlaylist(playlist);
     try {
         const currentData = await global.kv.get("matchmaking:searching");
         let data = currentData ? JSON.parse(currentData) : { total: 0, playlists: {} };
@@ -27,6 +38,7 @@ async function addSearchingPlayer(playlist: string) {
 }
 
 async function removeSearchingPlayer(playlist: string) {
+    playlist = resolvePlaylist(playlist);
     try {
         const currentData = await global.kv.get("matchmaking:searching");
         if (!currentData) return;
@@ -47,6 +59,7 @@ async function removeSearchingPlayer(playlist: string) {
 }
 
 async function findAvailableServer(playlist: string) {
+    playlist = resolvePlaylist(playlist);
     try {
         const allServers = await GameServers.find({ playlist: playlist });
         const now = Date.now();
@@ -84,7 +97,8 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         return res.status(400).end();
     }
 
-    const playlist = bucketId.split(":")[3];
+    const rawPlaylist = bucketId.split(":")[3];
+    const playlist = resolvePlaylist(rawPlaylist);
     
     await global.kv.set(`playerPlaylist:${req.user.accountId}`, playlist);
     
@@ -94,7 +108,7 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         startedAt: Date.now()
     }));
 
-        if (typeof playerCustomKey == "string") {
+    if (typeof playerCustomKey == "string") {
         let codeDocument: iMMCodes = await MMCode.findOne({ code_lower: playerCustomKey?.toLowerCase() }) as iMMCodes;
         if (!codeDocument) {
             return error.createError(
@@ -153,7 +167,7 @@ app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId
 });
 
 app.get("/fortnite/api/matchmaking/session/:sessionId", verifyToken, async (req: any, res) => {
-    const playlist = await global.kv.get(`playerPlaylist:${req.user.accountId}`);
+    const playlist = resolvePlaylist(await global.kv.get(`playerPlaylist:${req.user.accountId}`));
 
     let kvDocument = await global.kv.get(`playerCustomKey:${req.user.accountId}`);
 

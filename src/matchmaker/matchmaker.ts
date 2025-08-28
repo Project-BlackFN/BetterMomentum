@@ -2,7 +2,18 @@ import functions from "../utilities/structs/functions.js";
 import { WebSocket } from "ws";
 import GameServers from "../model/gameServers.js";
 
+const PLAYLIST_MAP: Record<string, string> = {
+    "2": "Playlist_DefaultSolo",
+    "10": "Playlist_DefaultDuo",
+    "9": "Playlist_DefaultSquad"
+};
+
+function resolvePlaylist(playlist: string): string {
+    return PLAYLIST_MAP[playlist] || playlist;
+}
+
 async function removeSearchingPlayer(playlist: string) {
+    playlist = resolvePlaylist(playlist);
     try {
         const currentData = await global.kv.get("matchmaking:searching");
         if (!currentData) return;
@@ -23,6 +34,7 @@ async function removeSearchingPlayer(playlist: string) {
 }
 
 async function addSearchingPlayer(playlist: string) {
+    playlist = resolvePlaylist(playlist);
     try {
         const currentData = await global.kv.get("matchmaking:searching");
         let data = currentData ? JSON.parse(currentData) : { total: 0, playlists: {} };
@@ -78,6 +90,7 @@ class matchmaker {
             }
         }
         
+        playlist = resolvePlaylist(playlist);
         matchmaker.clients++;
 
         if (accountId && playlist && playlist !== 'mms-player') {
@@ -98,7 +111,7 @@ class matchmaker {
                     if (!playlist || playlist === 'mms-player') {
                         playlist = 'Playlist_DefaultSolo';
                     }
-                    
+                    playlist = resolvePlaylist(playlist);
                     await this.startMatchmaking(ws, accountId, playlist, ticketId, matchId, sessionId);
                 } else {
                     setTimeout(tryAgain, 2000);
@@ -121,7 +134,7 @@ class matchmaker {
                     accountId = data.accountId;
                 }
                 if (data.playlist && !playlist) {
-                    playlist = data.playlist;
+                    playlist = resolvePlaylist(data.playlist);
                 }
                 
                 if (accountId && playlist && playlist !== 'mms-player' && !matchmaker.serverCheckIntervals.has(`${accountId}_${ticketId}`)) {
@@ -146,6 +159,7 @@ class matchmaker {
     }
 
     private async startMatchmaking(ws: WebSocket, accountId: string, playlist: string, ticketId: string, matchId: string, sessionId: string) {
+        playlist = resolvePlaylist(playlist);
         await this.sendConnecting(ws);
         await this.sendWaiting(ws, matchmaker.clients);
         await this.sendQueued(ws, ticketId, matchmaker.clients);
@@ -168,6 +182,7 @@ class matchmaker {
     }
 
     private async searchForServer(ws: WebSocket, accountId: string, playlist: string, ticketId: string, matchId: string, sessionId: string) {
+        playlist = resolvePlaylist(playlist);
         const intervalKey = `${accountId}_${ticketId}`;
         
         if (!playlist) {
@@ -197,7 +212,6 @@ class matchmaker {
                     }
                     await this.proceedToJoin(ws, matchId, sessionId, accountId, serverData, playlist);
                 } else {
-                    // Only add to counter when no server is available
                     await this.addSearchingPlayerIfNeeded(accountId, playlist);
                     await this.sendQueued(ws, ticketId, matchmaker.clients);
                 }
@@ -215,8 +229,8 @@ class matchmaker {
     }
 
     private async proceedToJoin(ws: WebSocket, matchId: string, sessionId: string, accountId: string, serverData: any, playlist?: string) {
-        // Remove player from searching counter when they find a server
         if (playlist && accountId) {
+            playlist = resolvePlaylist(playlist);
             await this.removeSearchingPlayerIfNeeded(accountId, playlist);
         }
         
@@ -227,6 +241,7 @@ class matchmaker {
     }
 
     private async findAvailableServer(playlist: string) {
+        playlist = resolvePlaylist(playlist);
         try {
             const allServers = await GameServers.find({ playlist: playlist });
             const now = Date.now();
@@ -269,10 +284,9 @@ class matchmaker {
         ws.send(JSON.stringify({ payload: { matchId, sessionId, joinDelaySec: 1 }, name: "Play" }));
     }
 
-    // Helper method to add player to searching counter only if needed
     private async addSearchingPlayerIfNeeded(accountId: string, playlist: string) {
+        playlist = resolvePlaylist(playlist);
         try {
-            // Check if this player is already in the counter to avoid duplicates
             const playerKey = `playerInSearchCounter:${accountId}`;
             const alreadyCounted = await global.kv.get(playerKey);
             
@@ -284,7 +298,9 @@ class matchmaker {
             console.error("Error in addSearchingPlayerIfNeeded:", error);
         }
     }
+
     private async removeSearchingPlayerIfNeeded(accountId: string, playlist: string) {
+        playlist = resolvePlaylist(playlist);
         try {
             const playerKey = `playerInSearchCounter:${accountId}`;
             const wasCounted = await global.kv.get(playerKey);
