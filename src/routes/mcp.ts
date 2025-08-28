@@ -11,8 +11,6 @@ import functions from "../utilities/structs/functions.js";
 import log from "../utilities/structs/log.js";
 import error from "../utilities/structs/error.js";
 import { verifyToken } from "../tokenManager/tokenVerify.js";
-import * as fs from "fs";
-import * as path from "path";
 
 global.giftReceived = {}; +
 
@@ -461,9 +459,8 @@ app.post("/fortnite/api/game/v2/profile/*/client/PurchaseCatalogEntry", verifyTo
         [req.query.profileId], 12813, undefined, 403, res
     );
 
-    let profile = profiles?.profiles[req.query.profileId as string];
+    let profile = profiles?.profiles[(req.query.profileId as string)];
     let athena = profiles?.profiles["athena"];
-    let profile0 = profiles?.profiles["profile0"];
 
     if (req.query.profileId != "common_core" && req.query.profileId != "profile0") return error.createError(
         "errors.com.epicgames.modules.profiles.invalid_command",
@@ -472,39 +469,39 @@ app.post("/fortnite/api/game/v2/profile/*/client/PurchaseCatalogEntry", verifyTo
     );
 
     let MultiUpdate: any[] = [{
-        profileRevision: athena.rvn || 0,
-        profileId: "athena",
-        profileChangesBaseRevision: athena.rvn || 0,
-        profileChanges: [],
-        profileCommandRevision: athena.commandRevision || 0,
+        "profileRevision": athena.rvn || 0,
+        "profileId": "athena",
+        "profileChangesBaseRevision": athena.rvn || 0,
+        "profileChanges": [],
+        "profileCommandRevision": athena.commandRevision || 0,
     }];
 
     const memory = functions.GetVersionInfo(req);
 
     let Notifications: any[] = [];
-    let ApplyProfileChanges: any[] = [];
+    let ApplyProfileChanges: Object[] = [];
     let BaseRevision = profile.rvn;
     let ProfileRevisionCheck = (memory.build >= 12.20) ? profile.commandRevision : profile.rvn;
     let QueryRevision = req.query.rvn || -1;
 
     let missingFields = checkFields(["offerId"], req.body);
+
     if (missingFields.fields.length > 0) return error.createError(
         "errors.com.epicgames.validation.validation_failed",
         `Validation Failed. [${missingFields.fields.join(", ")}] field(s) is missing.`,
         [`[${missingFields.fields.join(", ")}]`], 1040, undefined, 400, res
     );
 
-    if (typeof req.body.offerId !== "string") return ValidationError("offerId", "a string", res);
-    if (typeof req.body.purchaseQuantity !== "number") return ValidationError("purchaseQuantity", "a number", res);
+    if (typeof req.body.offerId != "string") return ValidationError("offerId", "a string", res);
+    if (typeof req.body.purchaseQuantity != "number") return ValidationError("purchaseQuantity", "a number", res);
     if (req.body.purchaseQuantity < 1) return error.createError(
         "errors.com.epicgames.validation.validation_failed",
         `Validation Failed. 'purchaseQuantity' is less than 1.`,
-        ["purchaseQuantity"], 1040, undefined, 400, res
+        ['purchaseQuantity'], 1040, undefined, 400, res
     );
 
     if (!profile.items) profile.items = {};
     if (!athena.items) athena.items = {};
-    if (!profile0.items) profile0.items = {};
 
     let findOfferId = functions.getOfferID(req.body.offerId);
     if (!findOfferId) return error.createError(
@@ -513,126 +510,111 @@ app.post("/fortnite/api/game/v2/profile/*/client/PurchaseCatalogEntry", verifyTo
         [req.body.offerId], 16027, undefined, 400, res
     );
 
-    const season = process.env.MAIN_SEASON;
-    const BattlePass = JSON.parse(fs.readFileSync(path.join(__dirname, "../responses/Athena/BattlePass", `${season}.json`), "utf8"));
+    switch (true) {
+        case /^BR(Daily|Weekly|Season)Storefront$/.test(findOfferId.name):
+            Notifications.push({
+                "type": "CatalogPurchase",
+                "primary": true,
+                "lootResult": {
+                    "items": []
+                }
+            });
 
-    if ([BattlePass.battlePassOfferId, BattlePass.battleBundleOfferId, BattlePass.tierOfferId].includes(req.body.offerId)) {
-        const offerId = req.body.offerId;
-        const purchaseQuantity = req.body.purchaseQuantity || 1;
-        const totalPrice = findOfferId.offerId.prices[0].finalPrice * purchaseQuantity;
+            for (let value of findOfferId.offerId.itemGrants) {
+                const ID = functions.MakeID();
 
-        if (findOfferId.offerId.prices[0].currencyType.toLowerCase() === "mtxcurrency") {
-            let paid = false;
-            for (let key in profile.items) {
-                if (!profile.items[key].templateId.toLowerCase().startsWith("currency:mtx")) continue;
-                const currencyPlatform = profile.items[key].attributes.platform;
-                if (currencyPlatform.toLowerCase() !== profile.stats.attributes.current_mtx_platform.toLowerCase() && currencyPlatform.toLowerCase() !== "shared") continue;
-                if (profile.items[key].quantity < totalPrice) return error.createError(
+                for (let itemId in athena.items) {
+                    if (value.templateId.toLowerCase() == athena.items[itemId].templateId.toLowerCase()) return error.createError(
+                        "errors.com.epicgames.offer.already_owned",
+                        `You have already bought this item before.`,
+                        undefined, 1040, undefined, 400, res
+                    );
+                }
+
+                const Item = {
+                    "templateId": value.templateId,
+                    "attributes": {
+                        "item_seen": false,
+                        "variants": [],
+                    },
+                    "quantity": 1
+                };
+
+                athena.items[ID] = Item;
+
+                MultiUpdate[0].profileChanges.push({
+                    "changeType": "itemAdded",
+                    "itemId": ID,
+                    "item": athena.items[ID]
+                });
+
+                Notifications[0].lootResult.items.push({
+                    "itemType": Item.templateId,
+                    "itemGuid": ID,
+                    "itemProfile": "athena",
+                    "quantity": 1
+                });
+            }
+
+            if (findOfferId.offerId.prices[0].currencyType.toLowerCase() == "mtxcurrency") {
+                let paid = false;
+
+                for (let key in profile.items) {
+                    if (!profile.items[key].templateId.toLowerCase().startsWith("currency:mtx")) continue;
+
+                    let currencyPlatform = profile.items[key].attributes.platform;
+                    if ((currencyPlatform.toLowerCase() != profile.stats.attributes.current_mtx_platform.toLowerCase()) && (currencyPlatform.toLowerCase() != "shared")) continue;
+
+                    if (profile.items[key].quantity < findOfferId.offerId.prices[0].finalPrice) return error.createError(
+                        "errors.com.epicgames.currency.mtx.insufficient",
+                        `You can not afford this item (${findOfferId.offerId.prices[0].finalPrice}), you only have ${profile.items[key].quantity}.`,
+                        [`${findOfferId.offerId.prices[0].finalPrice}`, `${profile.items[key].quantity}`], 1040, undefined, 400, res
+                    );
+
+                    profile.items[key].quantity -= findOfferId.offerId.prices[0].finalPrice;
+
+                    ApplyProfileChanges.push({
+                        "changeType": "itemQuantityChanged",
+                        "itemId": key,
+                        "quantity": profile.items[key].quantity
+                    });
+
+                    paid = true;
+
+                    break;
+                }
+
+                if (!paid && findOfferId.offerId.prices[0].finalPrice > 0) return error.createError(
                     "errors.com.epicgames.currency.mtx.insufficient",
-                    `You cannot afford this item (${totalPrice}), you only have ${profile.items[key].quantity}.`,
-                    [`${totalPrice}`, `${profile.items[key].quantity}`], 1040, undefined, 400, res
+                    `You can not afford this item (${findOfferId.offerId.prices[0].finalPrice}).`,
+                    [`${findOfferId.offerId.prices[0].finalPrice}`], 1040, undefined, 400, res
                 );
-
-                profile.items[key].quantity -= totalPrice;
-                profile0.items[key].quantity -= totalPrice;
-
-                ApplyProfileChanges.push(
-                    { changeType: "itemQuantityChanged", itemId: key, quantity: profile.items[key].quantity },
-                    { changeType: "itemQuantityChanged", itemId: key, quantity: profile0.items[key].quantity }
-                );
-                paid = true;
-                break;
-            }
-            if (!paid && totalPrice > 0) return error.createError(
-                "errors.com.epicgames.currency.mtx.insufficient",
-                `You cannot afford this item (${totalPrice}).`,
-                [`${totalPrice}`], 1040, undefined, 400, res
-            );
-        }
-
-        // Battle Pass Logic IDK if it works
-        if ([BattlePass.battlePassOfferId, BattlePass.battleBundleOfferId].includes(offerId)) {
-            let lootList: any[] = [];
-            let EndingTier = athena.stats.attributes.book_level;
-            athena.stats.attributes.book_purchased = true;
-
-            if (BattlePass.battleBundleOfferId === offerId) {
-                athena.stats.attributes.book_level = Math.min(athena.stats.attributes.book_level + 25, 100);
-                EndingTier = athena.stats.attributes.book_level;
             }
 
-            for (let i = 0; i < EndingTier; i++) {
-                const FreeTier = BattlePass.freeRewards[i] || {};
-                const PaidTier = BattlePass.paidRewards[i] || {};
+            if (MultiUpdate[0].profileChanges.length > 0) {
+                athena.rvn += 1;
+                athena.commandRevision += 1;
+                athena.updated = new Date().toISOString();
 
-                const tiers = [FreeTier, PaidTier];
-                for (const tier of tiers) {
-                    for (const item in tier) {
-                        if (item.toLowerCase() === "token:athenaseasonxpboost") {
-                            athena.stats.attributes.season_match_boost += tier[item];
-                            MultiUpdate[0].profileChanges.push({ changeType: "statModified", name: "season_match_boost", value: athena.stats.attributes.season_match_boost });
-                        }
-                        if (item.toLowerCase() === "token:athenaseasonfriendxpboost") {
-                            athena.stats.attributes.season_friend_match_boost += tier[item];
-                            MultiUpdate[0].profileChanges.push({ changeType: "statModified", name: "season_friend_match_boost", value: athena.stats.attributes.season_friend_match_boost });
-                        }
-
-                        const ItemID = functions.MakeID();
-                        athena.items[ItemID] = { templateId: item, attributes: { item_seen: false, level: 1, xp: 0, variants: [], favorite: false }, quantity: tier[item] };
-                        MultiUpdate[0].profileChanges.push({ changeType: "itemAdded", itemId: ItemID, item: athena.items[ItemID] });
-
-                        lootList.push({ itemType: item, itemGuid: item, quantity: tier[item] });
-                    }
-                }
+                MultiUpdate[0].profileRevision = athena.rvn;
+                MultiUpdate[0].profileCommandRevision = athena.commandRevision;
             }
-
-            const GiftBoxID = functions.MakeID();
-            const GiftBox = { templateId: "GiftBox:gb_battlepasspurchased", attributes: { max_level_bonus: 0, fromAccountId: "", lootList } };
-            profile.items[GiftBoxID] = GiftBox;
-            ApplyProfileChanges.push({ changeType: "itemAdded", itemId: GiftBoxID, item: GiftBox });
-
-            MultiUpdate[0].profileChanges.push({ changeType: "statModified", name: "book_purchased", value: athena.stats.attributes.book_purchased });
-            MultiUpdate[0].profileChanges.push({ changeType: "statModified", name: "book_level", value: athena.stats.attributes.book_level });
-        }
-
-        // Tier Kauf
-        if (BattlePass.tierOfferId === req.body.offerId) {
-            const StartingTier = athena.stats.attributes.book_level;
-            athena.stats.attributes.book_level += req.body.purchaseQuantity;
-            const EndingTier = athena.stats.attributes.book_level;
-
-            for (let i = StartingTier; i < EndingTier; i++) {
-                const FreeTier = BattlePass.freeRewards[i] || {};
-                const PaidTier = BattlePass.paidRewards[i] || {};
-                const tiers = [FreeTier, PaidTier];
-                for (const tier of tiers) {
-                    for (const item in tier) {
-                        const ItemID = functions.MakeID();
-                        athena.items[ItemID] = { templateId: item, attributes: { item_seen: false, level: 1, xp: 0, variants: [], favorite: false }, quantity: tier[item] };
-                        MultiUpdate[0].profileChanges.push({ changeType: "itemAdded", itemId: ItemID, item: athena.items[ItemID] });
-                    }
-                }
-            }
-        }
-
-        if (MultiUpdate[0].profileChanges.length > 0) {
-            athena.rvn += 1;
-            athena.commandRevision += 1;
-            athena.updated = new Date().toISOString();
-            MultiUpdate[0].profileRevision = athena.rvn;
-            MultiUpdate[0].profileCommandRevision = athena.commandRevision;
-        }
+            break;
     }
 
     if (ApplyProfileChanges.length > 0) {
         profile.rvn += 1;
         profile.commandRevision += 1;
         profile.updated = new Date().toISOString();
-        await profiles?.updateOne({ $set: { [`profiles.${req.query.profileId}`]: profile, [`profiles.athena`]: athena, [`profiles.profile0`]: profile0 } });
+
+        //        await profiles.updateOne({ $set: { [`profiles.${req.query.profileId}`]: profile, [`profiles.athena`]: athena } });
     }
 
-    if (QueryRevision !== ProfileRevisionCheck) {
-        ApplyProfileChanges = [{ changeType: "fullProfileUpdate", profile }];
+    if (QueryRevision != ProfileRevisionCheck) {
+        ApplyProfileChanges = [{
+            "changeType": "fullProfileUpdate",
+            "profile": profile
+        }];
     }
 
     res.json({
@@ -646,8 +628,10 @@ app.post("/fortnite/api/game/v2/profile/*/client/PurchaseCatalogEntry", verifyTo
         multiUpdate: MultiUpdate,
         responseVersion: 1
     });
-});
+    if (ApplyProfileChanges.length > 0)
+        await profiles?.updateOne({ $set: { [`profiles.${req.query.profileId}`]: profile, [`profiles.athena`]: athena } });
 
+});
 
 app.post("/fortnite/api/game/v2/profile/*/client/MarkItemSeen", verifyToken, async (req: any, res) => {
     const profiles = await Profile.findOne({ accountId: req.user.accountId });
