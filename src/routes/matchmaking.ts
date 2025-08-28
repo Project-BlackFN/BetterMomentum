@@ -12,6 +12,41 @@ import error from "../utilities/structs/error.js";
 
 let buildUniqueId = {};
 
+// Helper functions for managing searching players counter
+async function addSearchingPlayer(playlist: string) {
+    try {
+        const currentData = await global.kv.get("matchmaking:searching");
+        let data = currentData ? JSON.parse(currentData) : { total: 0, playlists: {} };
+        
+        data.total = (data.total || 0) + 1;
+        data.playlists[playlist] = (data.playlists[playlist] || 0) + 1;
+        
+        await global.kv.set("matchmaking:searching", JSON.stringify(data));
+    } catch (error) {
+        console.error("Error adding searching player:", error);
+    }
+}
+
+async function removeSearchingPlayer(playlist: string) {
+    try {
+        const currentData = await global.kv.get("matchmaking:searching");
+        if (!currentData) return;
+        
+        let data = JSON.parse(currentData);
+        
+        data.total = Math.max(0, (data.total || 0) - 1);
+        data.playlists[playlist] = Math.max(0, (data.playlists[playlist] || 0) - 1);
+        
+        if (data.playlists[playlist] === 0) {
+            delete data.playlists[playlist];
+        }
+        
+        await global.kv.set("matchmaking:searching", JSON.stringify(data));
+    } catch (error) {
+        console.error("Error removing searching player:", error);
+    }
+}
+
 async function findAvailableServer(playlist: string) {
     try {
         const allServers = await GameServers.find({ playlist: playlist });
@@ -60,7 +95,7 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         startedAt: Date.now()
     }));
 
-    if (typeof playerCustomKey == "string") {
+        if (typeof playerCustomKey == "string") {
         let codeDocument: iMMCodes = await MMCode.findOne({ code_lower: playerCustomKey?.toLowerCase() }) as iMMCodes;
         if (!codeDocument) {
             return error.createError(
@@ -120,6 +155,7 @@ app.get("/fortnite/api/game/v2/matchmaking/account/:accountId/session/:sessionId
 
 app.get("/fortnite/api/matchmaking/session/:sessionId", verifyToken, async (req: any, res) => {
     const playlist = await global.kv.get(`playerPlaylist:${req.user.accountId}`);
+
     let kvDocument = await global.kv.get(`playerCustomKey:${req.user.accountId}`);
 
     if (!kvDocument) {

@@ -2,6 +2,42 @@ import functions from "../utilities/structs/functions.js";
 import { WebSocket } from "ws";
 import GameServers from "../model/gameServers.js";
 
+// Helper function to remove searching player from counter
+async function removeSearchingPlayer(playlist: string) {
+    try {
+        const currentData = await global.kv.get("matchmaking:searching");
+        if (!currentData) return;
+        
+        let data = JSON.parse(currentData);
+        
+        data.total = Math.max(0, (data.total || 0) - 1);
+        data.playlists[playlist] = Math.max(0, (data.playlists[playlist] || 0) - 1);
+        
+        if (data.playlists[playlist] === 0) {
+            delete data.playlists[playlist];
+        }
+        
+        await global.kv.set("matchmaking:searching", JSON.stringify(data));
+    } catch (error) {
+        console.error("Error removing searching player:", error);
+    }
+}
+
+// Helper function to add searching player to counter
+async function addSearchingPlayer(playlist: string) {
+    try {
+        const currentData = await global.kv.get("matchmaking:searching");
+        let data = currentData ? JSON.parse(currentData) : { total: 0, playlists: {} };
+        
+        data.total = (data.total || 0) + 1;
+        data.playlists[playlist] = (data.playlists[playlist] || 0) + 1;
+        
+        await global.kv.set("matchmaking:searching", JSON.stringify(data));
+    } catch (error) {
+        console.error("Error adding searching player:", error);
+    }
+}
+
 class matchmaker {
     static clients: number = 0;
     private static serverCheckIntervals: Map<string, NodeJS.Timeout> = new Map();
@@ -104,6 +140,11 @@ class matchmaker {
                 clearInterval(interval);
                 matchmaker.serverCheckIntervals.delete(intervalKey);
             }
+            
+            // Remove player from searching counter when they disconnect
+            if (playlist && accountId) {
+                this.removeSearchingPlayerIfNeeded(accountId, playlist);
+            }
         });
     }
 
@@ -123,7 +164,7 @@ class matchmaker {
         }
 
         if (customKeyServer) {
-            await this.proceedToJoin(ws, matchId, sessionId, accountId, customKeyServer);
+            await this.proceedToJoin(ws, matchId, sessionId, accountId, customKeyServer, playlist);
         } else {
             await this.searchForServer(ws, accountId, playlist, ticketId, matchId, sessionId);
         }
@@ -157,8 +198,10 @@ class matchmaker {
                     if (accountId) {
                         await global.kv.set(`playerServer:${accountId}`, JSON.stringify(serverData));
                     }
-                    await this.proceedToJoin(ws, matchId, sessionId, accountId, serverData);
+                    await this.proceedToJoin(ws, matchId, sessionId, accountId, serverData, playlist);
                 } else {
+                    // Only add to counter when no server is available
+                    await this.addSearchingPlayerIfNeeded(accountId, playlist);
                     await this.sendQueued(ws, ticketId, matchmaker.clients);
                 }
             } catch {
@@ -174,7 +217,12 @@ class matchmaker {
         }
     }
 
-    private async proceedToJoin(ws: WebSocket, matchId: string, sessionId: string, accountId: string, serverData: any) {
+    private async proceedToJoin(ws: WebSocket, matchId: string, sessionId: string, accountId: string, serverData: any, playlist?: string) {
+        // Remove player from searching counter when they find a server
+        if (playlist && accountId) {
+            await this.removeSearchingPlayerIfNeeded(accountId, playlist);
+        }
+        
         await this.sendSessionAssignment(ws, matchId);
         setTimeout(async () => {
             await this.sendJoin(ws, matchId, sessionId);
@@ -222,6 +270,37 @@ class matchmaker {
 
     private async sendJoin(ws: WebSocket, matchId: string, sessionId: string) {
         ws.send(JSON.stringify({ payload: { matchId, sessionId, joinDelaySec: 1 }, name: "Play" }));
+    }
+
+    // Helper method to add player to searching counter only if needed
+    private async addSearchingPlayerIfNeeded(accountId: string, playlist: string) {
+        try {
+            // Check if this player is already in the counter to avoid duplicates
+            const playerKey = `playerInSearchCounter:${accountId}`;
+            const alreadyCounted = await global.kv.get(playerKey);
+            
+            if (!alreadyCounted) {
+                await addSearchingPlayer(playlist);
+                await global.kv.set(playerKey, "true");
+            }
+        } catch (error) {
+            console.error("Error in addSearchingPlayerIfNeeded:", error);
+        }
+    }
+
+    // Helper method to remove player from searching counter
+    private async removeSearchingPlayerIfNeeded(accountId: string, playlist: string) {
+        try {
+            const playerKey = `playerInSearchCounter:${accountId}`;
+            const wasCounted = await global.kv.get(playerKey);
+            
+            if (wasCounted) {
+                await removeSearchingPlayer(playlist);
+                await global.kv.delete(playerKey);
+            }
+        } catch (error) {
+            console.error("Error in removeSearchingPlayerIfNeeded:", error);
+        }
     }
 }
 
