@@ -288,6 +288,61 @@ class functions {
         ClientData.client.send(xml.toString());
     }
 
+    public async registerServer(accountId: string, username: string, email: string, plainPassword: string) {
+    email = email.toLowerCase();
+
+    if (!accountId || !username || !email || !plainPassword) 
+        return { message: "AccountId/username/email/password is required.", status: 400 };
+
+    if (await User.findOne({ accountId })) 
+        return { message: "Server account already exists!", status: 400 };
+
+    // Filters
+    const emailFilter = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+    if (!emailFilter.test(email)) return { message: "Invalid email address!", status: 400 };
+    if (username.length >= 25) return { message: "Username must be less than 25 characters.", status: 400 };
+    if (username.length < 3) return { message: "Username must be at least 3 characters.", status: 400 };
+    if (plainPassword.length >= 128) return { message: "Password must be less than 128 characters.", status: 400 };
+
+    const allowedCharacters = (" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~").split("");
+    for (let character of username) {
+        if (!allowedCharacters.includes(character)) 
+            return { message: "Username has invalid characters.", status: 400 };
+    }
+
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+    try {
+        log.debug(`Creating server account ${username} with accountId ${accountId}`);
+        await User.create({
+            created: new Date().toISOString(),
+            banne: false,
+            discordId: null,
+            accountId: accountId,
+            username: username,
+            username_lower: username.toLowerCase(),
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            isServer: true,
+            matchmakingId: this.MakeID(),
+        }).then(async (i) => {
+            log.debug(`Created server account ${username}`);
+            await Profile.create({
+                created: i.created,
+                accountId: i.accountId,
+                profiles: await profileManager.createProfiles(i.accountId)
+            });
+            await Friends.create({ created: i.created, accountId: i.accountId });
+        });
+    } catch (err: any) {
+        if (err.code == 11000) return { message: "Username or email already in use.", status: 400 };
+        console.error(err);
+        return { message: "An unknown error occurred, please try again later.", status: 400 };
+    }
+
+    return { message: `Successfully created server account ${username}`, status: 200 };
+}
+
     public async registerUser(discordId: any, username: string, email: string, plainPassword: string, isServer: boolean) {
         email = email.toLowerCase();
 

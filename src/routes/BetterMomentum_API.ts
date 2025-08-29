@@ -2,8 +2,14 @@ import express from "express";
 import GameServers, { iGameServer } from "../model/gameServers.js";
 import crypto from "crypto";
 import log from "../utilities/structs/log.js";
+import functions from "../utilities/structs/functions.js";
+import Users from '../model/user.js';
+import Profiles from '../model/profiles.js';
+import Friends from '../model/friends.js';
 
 const app = express.Router();
+
+let serverAccounts = new Map<string, { deleteToken: string, accountId: string }>();
 
 app.post("/bettermomentum/addserver", async (req, res) => {
     try {
@@ -183,6 +189,87 @@ app.get("/bettermomentum/matchmaker/serverInfo", async (_req, res) => {
         });
     } catch (error) {
         console.error("serverInfo error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post("/bettermomentum/serveraccount/create", async (req, res) => {
+    try {
+        const { serverKey } = req.body;
+        if (!serverKey || serverKey !== process.env.SERVER_AUTH_KEY) {
+            return res.status(401).json({ error: "Invalid server key" });
+        }
+
+        const accountId = crypto.randomUUID().split('-')[0];
+        const randomUUID = crypto.randomUUID().split('-')[0];
+        const username = `bfntmp-${randomUUID}`;
+        const email = `blackfn-${randomUUID}@bettermomentum.org`;
+        const plainPassword = crypto.randomBytes(16).toString("base64").slice(0, 16);
+        const deleteToken = crypto.randomUUID();
+
+        const result = await functions.registerServer(accountId, username, email, plainPassword);
+
+        if (result.status !== 200) {
+            console.error("Error registering server account:", result.message);
+            return res.status(500).json({ error: "Failed to register server account", details: result.message });
+        }
+
+        serverAccounts.set(accountId, { deleteToken, accountId });
+        log.backend(`Server account created: ${username}`);
+
+        return res.status(201).json({
+            message: "Server account created successfully",
+            
+            accountId,
+            username,
+            email,
+            password: plainPassword,
+            deleteToken
+        });
+
+    } catch (error) {
+        console.error("Server account creation error:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
+app.post("/bettermomentum/serveraccount/delete", async (req, res) => {
+    try {
+        const { deleteToken } = req.body;
+
+        if (!deleteToken) {
+            return res.status(400).json({ error: "Missing deleteToken" });
+        }
+
+        let accountIdToDelete: string | null = null;
+
+        for (const [accountId, data] of serverAccounts.entries()) {
+            if (data.deleteToken === deleteToken) {
+                accountIdToDelete = accountId;
+                break;
+            }
+        }
+
+        if (!accountIdToDelete) {
+            return res.status(404).json({ error: "Invalid deleteToken or account not found" });
+        }
+
+        await Users.findOneAndDelete({ accountId: accountIdToDelete });
+        await Profiles.findOneAndDelete({ accountId: accountIdToDelete });
+        await Friends.findOneAndDelete({ accountId: accountIdToDelete });
+
+        serverAccounts.delete(accountIdToDelete);
+
+        log.backend(`Server account deleted: ${accountIdToDelete}`);
+
+        return res.json({
+            message: "Server account deleted successfully",
+            accountId: accountIdToDelete
+        });
+
+    } catch (error) {
+        console.error("Server account deletion error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
