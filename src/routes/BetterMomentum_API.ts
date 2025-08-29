@@ -11,6 +11,15 @@ const app = express.Router();
 
 let serverAccounts = new Map<string, { deleteToken: string, accountId: string }>();
 
+const PLAYLIST_MAP: Record<string, string> = { // a filter for the gs
+    "2": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "10": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "9": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad",
+    "playlist_defaultsolo": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "playlist_defaultduo": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "playlist_defaultsquad": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad"
+};
+
 app.post("/bettermomentum/addserver", async (req, res) => {
     try {
         const { ip, port, playlist, serverKey } = req.body;
@@ -26,17 +35,19 @@ app.post("/bettermomentum/addserver", async (req, res) => {
             return res.status(401).json({ error: "Invalid server key" });
         }
 
-        const existingServer = await GameServers.findOne({ ip, port, playlist });
+        // Playlist auflösen
+        const playlistPath = PLAYLIST_MAP[playlist.toLowerCase()] || playlist;
+
+        const existingServer = await GameServers.findOne({ ip, port, playlist: playlistPath });
 
         if (existingServer) {
-            // update server
+            // Update bestehender Server
             existingServer.lastHeartbeat = new Date();
             existingServer.lastJoinabilityUpdate = new Date();
             existingServer.status = "online";
             existingServer.joinable = true;
 
             await existingServer.save();
-
             log.backend("Server updated");
 
             return res.json({
@@ -46,11 +57,12 @@ app.post("/bettermomentum/addserver", async (req, res) => {
             });
         }
 
+        // Neuen Server erstellen
         const serverSecretKey = crypto.randomUUID();
         const newServer = new GameServers({
             ip,
             port,
-            playlist,
+            playlist: playlistPath,
             name: `Server-${ip}:${port}`,
             region: "EU",
             maxPlayers: 100,
@@ -63,19 +75,20 @@ app.post("/bettermomentum/addserver", async (req, res) => {
         });
 
         await newServer.save();
-
         log.backend("Register success");
 
         return res.status(201).json({
             message: "Server registered successfully",
             serverId: newServer._id,
             serverSecretKey,
+            playlist: playlistPath, 
         });
     } catch (error) {
         console.error("Server registration error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
+
 
 app.post("/bettermomentum/heartbeat", async (req, res) => {
     try {
