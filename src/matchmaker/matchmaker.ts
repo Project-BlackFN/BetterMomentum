@@ -3,9 +3,12 @@ import { WebSocket } from "ws";
 import GameServers from "../model/gameServers.js";
 
 const PLAYLIST_MAP: Record<string, string> = {
-    "2": "playlist_defaultsolo",
-    "10": "playlist_defaultduo",
-    "9": "playlist_defaultsquad"
+    "2": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "10": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "9": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad",
+    "playlist_defaultsolo": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "playlist_defaultduo": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "playlist_defaultsquad": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad"
 };
 
 function resolvePlaylist(playlist: string): string {

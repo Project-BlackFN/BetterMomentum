@@ -12,10 +12,13 @@ import error from "../utilities/structs/error.js";
 
 let buildUniqueId = {};
 
-const PLAYLIST_MAP: Record<string, string> = { // for very old Builds under the Version S5
-    "2": "playlist_defaultsolo",
-    "10": "playlist_defaultduo",
-    "9": "playlist_defaultsquad"
+const PLAYLIST_MAP: Record<string, string> = { // a filter for the gs
+    "2": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "10": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "9": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad",
+    "playlist_defaultsolo": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
+    "playlist_defaultduo": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
+    "playlist_defaultsquad": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad"
 };
 
 function resolvePlaylist(playlist: string): string {
