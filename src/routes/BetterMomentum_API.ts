@@ -213,12 +213,12 @@ app.post("/bettermomentum/serveraccount/create", async (req, res) => {
             return res.status(401).json({ error: "Invalid server key" });
         }
 
-        const accountId = crypto.randomUUID().split('-')[0];
-        const randomUUID = crypto.randomUUID().split('-')[0];
-        const username = `bfntmp-${randomUUID}`;
-        const email = `blackfn-${randomUUID}@bettermomentum.org`;
-        const plainPassword = crypto.randomBytes(16).toString("base64").slice(0, 16);
-        const deleteToken = crypto.randomUUID();
+        const accountId = crypto.randomBytes(4).toString("hex");
+        const randomId = crypto.randomBytes(4).toString("hex");
+        const username = `bfntmp-${randomId}`;
+        const email = `blackfn-${randomId}@bettermomentum.org`;
+        const plainPassword = crypto.randomBytes(12).toString("base64").slice(0, 16);
+        const deleteToken = crypto.randomBytes(16).toString("hex");
 
         const result = await functions.registerServer(accountId, username, email, plainPassword);
 
