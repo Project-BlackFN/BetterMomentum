@@ -291,11 +291,17 @@ class functions {
     public async registerServer(accountId: string, username: string, email: string, plainPassword: string) {
     email = email.toLowerCase();
 
-    if (!accountId || !username || !email || !plainPassword) 
-        return { message: "AccountId/username/email/password is required.", status: 400 };
+    const existingByAccountId = await User.findOne({ accountId });
+    if (existingByAccountId) 
+        return { message: "AccountId already exists!", status: 400 };
 
-    if (await User.findOne({ accountId })) 
-        return { message: "Server account already exists!", status: 400 };
+    const existingByUsername = await User.findOne({ username });
+    if (existingByUsername) 
+        return { message: "Username already exists!", status: 400 };
+
+    const existingByEmail = await User.findOne({ email });
+    if (existingByEmail) 
+        return { message: "Email already exists!", status: 400 };
 
     // Filters
     const emailFilter = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
@@ -323,7 +329,7 @@ class functions {
             username_lower: username.toLowerCase(),
             email: email.toLowerCase(),
             password: hashedPassword,
-            isServer: true,
+            isServer: false,
             matchmakingId: this.MakeID(),
         }).then(async (i) => {
             log.debug(`Created server account ${username}`);
