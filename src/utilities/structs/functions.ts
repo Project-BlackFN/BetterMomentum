@@ -323,7 +323,6 @@ class functions {
         await User.create({
             created: new Date().toISOString(),
             banne: false,
-            discordId: null,
             accountId: accountId,
             username: username,
             username_lower: username.toLowerCase(),
