@@ -288,7 +288,7 @@ class functions {
         ClientData.client.send(xml.toString());
     }
 
-    public async registerServer(accountId: string, username: string, email: string, plainPassword: string) {
+    public async registerServer(discordId: string, accountId: string, username: string, email: string, plainPassword: string) {
     email = email.toLowerCase();
 
     const existingByAccountId = await User.findOne({ accountId });
@@ -318,35 +318,57 @@ class functions {
 
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-    try {
-        log.debug(`Creating server account ${username} with accountId ${accountId}`);
-        await User.create({
-            created: new Date().toISOString(),
-            banne: false,
-            accountId: accountId,
-            username: username,
-            username_lower: username.toLowerCase(),
-            email: email.toLowerCase(),
-            password: hashedPassword,
-            isServer: false,
-            matchmakingId: this.MakeID(),
-        }).then(async (i) => {
-            log.debug(`Created server account ${username}`);
-            await Profile.create({
-                created: i.created,
-                accountId: i.accountId,
-                profiles: await profileManager.createProfiles(i.accountId)
-            });
-            await Friends.create({ created: i.created, accountId: i.accountId });
+try {
+    log.debug(`Creating server account ${username} with accountId ${accountId}`);
+    await User.create({
+        created: new Date().toISOString(),
+        discordId: discordId,
+        banne: false,
+        accountId: accountId,
+        username: username,
+        username_lower: username.toLowerCase(),
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        isServer: false,
+        matchmakingId: this.MakeID(),
+    }).then(async (i) => {
+        log.debug(`Created server account ${username}`);
+        await Profile.create({
+            created: i.created,
+            accountId: i.accountId,
+            profiles: await profileManager.createProfiles(i.accountId)
         });
-    } catch (err: any) {
-        if (err.code == 11000) return { message: "Username or email already in use.", status: 400 };
-        console.error(err);
-        return { message: "An unknown error occurred, please try again later.", status: 400 };
+        await Friends.create({ created: i.created, accountId: i.accountId });
+    });
+} catch (err: any) {
+    // Prüfe, ob es ein Duplikat-Fehler ist
+    if (err.code === 11000) {
+        const key = Object.keys(err.keyValue)[0]; // z.B. 'username' oder 'email'
+        const value = err.keyValue[key];
+        return { 
+            message: `${key.charAt(0).toUpperCase() + key.slice(1)} '${value}' is already in use.`, 
+            status: 400 
+        };
     }
 
-    return { message: `Successfully created server account ${username}`, status: 200 };
+    // Prüfe auf Validierungsfehler
+    if (err.name === "ValidationError") {
+        const errors = Object.values(err.errors).map((e: any) => e.message).join(", ");
+        return {
+            message: `Validation failed: ${errors}`,
+            status: 400
+        };
+    }
+
+    console.error(err);
+    return { 
+        message: "An unknown error occurred, please try again later.", 
+        status: 500 
+    };
 }
+
+return { message: `Successfully created server account ${username}`, status: 200 };
+    }
 
     public async registerUser(discordId: any, username: string, email: string, plainPassword: string, isServer: boolean) {
         email = email.toLowerCase();

@@ -217,12 +217,13 @@ app.post("/bettermomentum/serveraccount/create", async (req, res) => {
 
         const accountId = crypto.randomBytes(4).toString("hex");
         const randomId = crypto.randomBytes(4).toString("hex");
+        const discordId = crypto.randomBytes(4).toString("hex");
         const username = `bfntmp-${randomId}`;
         const email = `blackfn-${randomId}@bettermomentum.org`;
         const plainPassword = crypto.randomBytes(12).toString("base64").slice(0, 16);
         const deleteToken = crypto.randomBytes(16).toString("hex");
 
-        const result = await functions.registerServer(accountId, username, email, plainPassword);
+        const result = await functions.registerServer(discordId, accountId, username, email, plainPassword);
 
         if (result.status !== 200) {
             console.error("Error registering server account:", result.message);
