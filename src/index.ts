@@ -16,6 +16,7 @@ import error from "./utilities/structs/error.js";
 import { version } from "./utilities/cron/update.js";
 import serverRegistrationRoutes from "./routes/BetterMomentum_API.js";
 import "./utilities/cron/update.js";
+import os from "os";
 import { DateAddHours } from "./routes/auth.js";
 import "./model/gameServers.js";
 import gameServers from "./model/gameServers.js";
@@ -181,6 +182,25 @@ async function deleteAllGameServers() {
 }
 
 app.get("/", (req, res) => {
+    const cpus = os.cpus();
+
+    let cpuInfo = {
+        model: "Unknown",
+        manufacturer: "Unknown",
+        threads: 0,
+        baseSpeedMHz: 0
+    };
+
+    if (cpus && cpus.length > 0) {
+        cpuInfo.model = cpus[0].model;
+        cpuInfo.threads = cpus.length;
+        cpuInfo.baseSpeedMHz = cpus[0].speed;
+
+        if (/intel/i.test(cpuInfo.model)) cpuInfo.manufacturer = "Intel";
+        else if (/amd/i.test(cpuInfo.model)) cpuInfo.manufacturer = "AMD";
+        else if (/apple/i.test(cpuInfo.model)) cpuInfo.manufacturer = "Apple";
+    }
+
     res.status(200).json({
         status: "ok",
         version: version,
@@ -191,7 +211,8 @@ app.get("/", (req, res) => {
         arch: process.arch,
         cpuUsage: process.cpuUsage(),
         environment: process.env.NODE_ENV,
-        ssl: !!setupSSL()
+        ssl: !!setupSSL(),
+        cpu: cpuInfo
     });
 });
 
