@@ -131,12 +131,12 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
     } catch (error) {
         console.error("Check login error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ success: "false", code: "blackfn.internal_error", message: "Internal server error" });
     }
 });
 
 app.get("/bettermomentum/up", (_req, res) => {
-    res.json({ code: "blackfn.status.up", status: "up", timestamp: new Date().toISOString() });
+    res.json({ success: "true", code: "blackfn.status.up", status: "up", timestamp: new Date().toISOString() });
 });
 
 
