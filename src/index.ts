@@ -106,22 +106,6 @@ if (playlists && playlists.length > 0) {
 const app = express();
 const PORT = Safety.env.PORT;
 
-// Anfrage-Logger (nur Konsole)
-app.use((req, res, next) => {
-    const time = new Date().toISOString();
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
-    console.log(`[${time}] Neue Anfrage`);
-    console.log(`${req.method} ${req.originalUrl}`);
-    console.log(`IP: ${ip}`);
-    console.log(`Headers:`, req.headers);
-
-    if (Object.keys(req.query || {}).length > 0) console.log(`Query:`, req.query);
-    if (req.method !== "GET" && Object.keys(req.body || {}).length > 0) console.log(`Body:`, req.body);
-
-    next();
-});
-
 global.kv = kv;
 global.safety = Safety;
 global.JWT_SECRET = functions.MakeID();
