@@ -88,6 +88,53 @@ app.post("/bettermomentum/addserver", async (req, res) => {
     }
 });
 
+app.post("/bettermomentum/checklogin", async (req, res) => {
+    try {
+        const {email, password} = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                code: "blackfn.missing_fields",
+                message: "Missing required fields: email, password",
+            });
+        }
+
+        const user = await Users.findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({
+                code: "blackfn.invalid_credentials",
+                message: "Invalid email or password",
+                success: false,
+            });
+        }
+
+        const bcrypt = await import('bcrypt');
+        const isPasswordValid = await bcrypt.default.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                code: "blackfn.invalid_credentials",
+                message: "Invalid email or password",
+                success: false
+            });
+        }
+
+        return res.json({
+            success: true,
+            code: "blackfn.login_success",
+            message: "Login successful",
+            accountId: user.accountId,
+            username: user.username,
+            email: user.email
+        });
+
+    } catch (error) {
+        console.error("Check login error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 
 app.post("/bettermomentum/heartbeat", async (req, res) => {
     try {
