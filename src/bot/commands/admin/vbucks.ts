@@ -14,7 +14,7 @@ export const data = new SlashCommandBuilder()
 		option.setName('vbucks')
 			.setDescription('The amount of vbucks you want to give (Can be a negative number to take vbucks)')
 			.setRequired(true))
-	.setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
+	.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 	.setDMPermission(false);
 
 export async function execute(interaction: ChatInputCommandInteraction) {

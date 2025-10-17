@@ -20,7 +20,7 @@ export const data = new SlashCommandBuilder()
         option.setName('cosmeticname')
             .setDescription('The name of the cosmetic you want to give')
             .setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false);
 
 export async function execute(interaction: ChatInputCommandInteraction) {

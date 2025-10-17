@@ -13,7 +13,7 @@ export const data = new SlashCommandBuilder()
 		option.setName('reason')
 			.setDescription('The reason for deleting the account')
 			.setRequired(true))
-	.setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
+	.setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 	.setDMPermission(false);
 
 export async function execute(interaction) {
