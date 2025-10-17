@@ -9,14 +9,12 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply({ ephemeral: true });
-
-    const shopItems = await Shop.updateShop();
-
-    if (!shopItems.length) {
-        return await interaction.editReply({ 
-            content: "No bro.." 
-        });
+    
+    try {
+        await Shop.rotateShop();
+        await interaction.editReply({ content: "The shop has been rotated." });
+    } catch (error) {
+        console.error('Failed to rotate shop:', error);
+        await interaction.editReply({ content: "Failed to rotate the shop. Check console for errors." });
     }
-
-    await interaction.editReply({ content: "The shop has been rotated." });
 }
