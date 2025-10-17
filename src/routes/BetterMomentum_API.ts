@@ -135,6 +135,10 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
     }
 });
 
+app.get("/bettermomentum/up", (_req, res) => {
+    res.json({ code: "blackfn.status.up", status: "up", timestamp: new Date().toISOString() });
+});
+
 
 app.post("/bettermomentum/heartbeat", async (req, res) => {
     try {
