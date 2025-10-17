@@ -145,6 +145,7 @@ app.post("/bettermomentum/heartbeat", async (req, res) => {
 
         if (!serverKey || !ip || !port || typeof joinable !== "boolean") {
             return res.status(400).json({
+                code: "bettermomentum.missing_fields", 
                 error: "Missing required fields: serverKey, ip, port, joinable (boolean)",
             });
         }
@@ -164,6 +165,7 @@ app.post("/bettermomentum/heartbeat", async (req, res) => {
         await server.save();
 
         res.json({
+            code: "bettermomentum.heartbeat.success", 
             message: "Heartbeat received and joinability updated",
             server: `${server.ip}:${server.port}`,
             playlist: server.playlist,
@@ -171,7 +173,7 @@ app.post("/bettermomentum/heartbeat", async (req, res) => {
         });
     } catch (error) {
         console.error("Heartbeat error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ code: "bettermomentum.heartbeat.error", error: "Internal server error" });
     }
 });
 
@@ -181,6 +183,7 @@ app.post("/bettermomentum/removeserver", async (req, res) => {
 
         if (!serverKey || !ip || !port) {
             return res.status(400).json({
+                code: "bettermomentum.missing_fields",
                 error: "Missing required fields: serverKey, ip, port",
             });
         }
@@ -190,15 +193,15 @@ app.post("/bettermomentum/removeserver", async (req, res) => {
         if (!server) {
             return res
                 .status(404)
-                .json({ error: "Server not found or invalid serverKey" });
+                .json({ code: "bettermomentum.unregister.fail",  error: "Server not found or invalid serverKey" });
         }
 
         await GameServers.deleteOne({ _id: server._id });
 
-        res.json({ message: "Server unregistered successfully" });
+        res.json({ code: "bettermomentum.unregister.success", message: "Server unregistered successfully" });
     } catch (error) {
         console.error("Remove server error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({code: "bettermomentum.internal_error", error: "Internal server error" });
     }
 });
 
@@ -208,7 +211,7 @@ app.get("/bettermomentum/serverlist", async (_req, res) => {
         res.json(servers);
     } catch (error) {
         console.error("Get servers error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({code: "bettermomentum.internal_error", error: "Internal server error" });
     }
 });
 
@@ -251,7 +254,7 @@ app.get("/bettermomentum/matchmaker/serverInfo", async (_req, res) => {
         });
     } catch (error) {
         console.error("serverInfo error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({code: "bettermomentum.internal_error", error: "Internal server error" });
     }
 });
 
@@ -282,7 +285,7 @@ app.post("/bettermomentum/serveraccount/create", async (req, res) => {
 
         return res.status(201).json({
             message: "Server account created successfully",
-            
+            code: "bettermomentum.server.account.created",
             accountId,
             username,
             email,
@@ -292,7 +295,7 @@ app.post("/bettermomentum/serveraccount/create", async (req, res) => {
 
     } catch (error) {
         console.error("Server account creation error:", error);
-        return res.status(500).json({ error: "Internal server error" });
+        return res.status(500).json({ code: "bettermomentum.internal_error", error: "Internal server error" });
     }
 });
 
@@ -302,7 +305,7 @@ app.post("/bettermomentum/serveraccount/delete", async (req, res) => {
         const { deleteToken } = req.body;
 
         if (!deleteToken) {
-            return res.status(400).json({ error: "Missing deleteToken" });
+            return res.status(400).json({ code: "bettermomentum.missing_fields", error: "Missing deleteToken" });
         }
 
         let accountIdToDelete: string | null = null;
@@ -315,7 +318,7 @@ app.post("/bettermomentum/serveraccount/delete", async (req, res) => {
         }
 
         if (!accountIdToDelete) {
-            return res.status(404).json({ error: "Invalid deleteToken or account not found" });
+            return res.status(404).json({ code: "bettermomentum.missing_fields", error: "Invalid deleteToken or account not found" });
         }
 
         await Users.findOneAndDelete({ accountId: accountIdToDelete });
@@ -327,13 +330,14 @@ app.post("/bettermomentum/serveraccount/delete", async (req, res) => {
         log.backend(`Server account deleted: ${accountIdToDelete}`);
 
         return res.json({
+            code: "bettermomentum.server.account.deleted",
             message: "Server account deleted successfully",
             accountId: accountIdToDelete
         });
 
     } catch (error) {
         console.error("Server account deletion error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ code: "bettermomentum.internal_error", error: "Internal server error" });
     }
 });
 
