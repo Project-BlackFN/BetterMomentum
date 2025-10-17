@@ -2,7 +2,7 @@
 
 **Original Project: https://github.com/simplyzetax/Momentum**
 
-*NOTE: If you want to use XMPP please enter your Public IP and the Port 4309 in [CloudStorage/DefaultEngine.ini](https://github.com/Project-BlackFN/BetterMomentum/CloudStorage/DefaultEngine.ini) and if you use SSL enable bUseSSL on both and use **wss** instead of **ws**
+# NOTE: If you want to use XMPP please enter your Public IP and the Port 4309 in [CloudStorage/DefaultEngine.ini](https://github.com/Project-BlackFN/BetterMomentum/CloudStorage/DefaultEngine.ini) and if you use SSL enable bUseSSL on both and use **wss** instead of **ws**
 
 -> Features to add:
 
