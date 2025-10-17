@@ -126,7 +126,6 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
             message: "Login successful",
             accountId: user.accountId,
             username: user.username,
-            email: user.email
         });
 
     } catch (error) {
