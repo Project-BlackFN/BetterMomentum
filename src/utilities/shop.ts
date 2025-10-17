@@ -43,7 +43,7 @@ class Shop {
     private catalogConfigPath: string;
 
     constructor() {
-        this.catalogConfigPath = path.join(__dirname, '../Config/catalog_config.json');
+        this.catalogConfigPath = path.join(__dirname, '../../Config/catalog_config.json');
     }
 
     private convertAbsoluteSeasonToChapterSeason(absoluteSeason: number): { chapter: number; season: number } | null {
@@ -78,7 +78,7 @@ class Shop {
 
     async fetchItems(): Promise<FortniteItem[]> {
         try {
-            const shopContentPath = path.join(__dirname, '../Config/shop_content.json');
+            const shopContentPath = path.join(__dirname, '../../responses/shop_content.json');
             const fileContent = await fs.readFile(shopContentPath, 'utf-8');
             const jsonData = JSON.parse(fileContent);
             const cosmetics: FortniteItem[] = jsonData.data || jsonData;
