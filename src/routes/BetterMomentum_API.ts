@@ -94,7 +94,7 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
         if (!email || !password) {
             return res.status(400).json({
-                code: "blackfn.missing_fields",
+                code: "bettermomentum.missing_fields",
                 message: "Missing required fields: email, password",
             });
         }
@@ -103,7 +103,7 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
         if (!user) {
             return res.status(401).json({
-                code: "blackfn.invalid_credentials",
+                code: "bettermomentum.invalid_credentials",
                 message: "Invalid email or password",
                 success: false,
             });
@@ -114,7 +114,7 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
         if (!isPasswordValid) {
             return res.status(401).json({
-                code: "blackfn.invalid_credentials",
+                code: "bettermomentum.invalid_credentials",
                 message: "Invalid email or password",
                 success: false
             });
@@ -122,7 +122,7 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
         return res.json({
             success: true,
-            code: "blackfn.login_success",
+            code: "bettermomentum.login_success",
             message: "Login successful",
             accountId: user.accountId,
             username: user.username,
@@ -131,12 +131,12 @@ app.post("/bettermomentum/checklogin", async (req, res) => {
 
     } catch (error) {
         console.error("Check login error:", error);
-        res.status(500).json({ success: "false", code: "blackfn.internal_error", message: "Internal server error" });
+        res.status(500).json({ success: "false", code: "bettermomentum.internal_error", message: "Internal server error" });
     }
 });
 
 app.get("/bettermomentum/up", (_req, res) => {
-    res.json({ success: "true", code: "blackfn.status.up", status: "up", timestamp: new Date().toISOString() });
+    res.json({ success: "true", code: "bettermomentum.status.up", status: "up", timestamp: new Date().toISOString() });
 });
 
 
