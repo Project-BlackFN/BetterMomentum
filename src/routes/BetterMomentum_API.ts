@@ -37,13 +37,11 @@ app.post("/bettermomentum/addserver", async (req, res) => {
             return res.status(401).json({ error: "Invalid server key" });
         }
 
-        // Playlist auflösen
         const playlistPath = PLAYLIST_MAP[playlist.toLowerCase()] || playlist;
 
         const existingServer = await GameServers.findOne({ ip, port, playlist: playlistPath });
 
         if (existingServer) {
-            // Update bestehender Server
             existingServer.lastHeartbeat = new Date();
             existingServer.lastJoinabilityUpdate = new Date();
             existingServer.status = "online";
@@ -59,7 +57,6 @@ app.post("/bettermomentum/addserver", async (req, res) => {
             });
         }
 
-        // Neuen Server erstellen
         const serverSecretKey = crypto.randomUUID();
         const newServer = new GameServers({
             ip,
