@@ -208,7 +208,10 @@ app.post("/bettermomentum/removeserver", async (req, res) => {
 app.get("/bettermomentum/serverlist", async (_req, res) => {
     try {
         const servers = await GameServers.find({ status: "online" });
-        res.json(servers);
+
+        const safeServers = servers.map(({ serverKey, ...rest }) => rest);
+        
+        res.json(safeServers);
     } catch (error) {
         console.error("Get servers error:", error);
         res.status(500).json({code: "bettermomentum.internal_error", error: "Internal server error" });
