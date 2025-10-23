@@ -13,7 +13,7 @@
   - Matchmaker (PROGRESS: 100%)
   - Gameserver register via API.. (PROGRESS: 100%)
   - Avalible Gamemodes will be configurable in .env file (PROGRESS: 100%)
-  - Fixed RotateShop (PROGRESS: 50%) (idk when I take down the [FortniteShopAPI](https://github.com/Project-BlackFN/FortniteShopAPI) Server) - buggy
+  - Fixed RotateShop (PROGRESS: 100%)
   - Multi Servers (PROGRESS: 100%)
   - SSL (PROGRESS: 100%)
 
