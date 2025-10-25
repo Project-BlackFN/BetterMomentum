@@ -20,10 +20,10 @@ import os from "os";
 import { DateAddHours } from "./routes/auth.js";
 import "./model/gameServers.js";
 import gameServers from "./model/gameServers.js";
+import User from "./model/user.js";
 
 const __dirname = dirname(import.meta);
 
-// SSL
 function setupSSL() {
     const sslDir = path.join(__dirname, "../ssl");
     
@@ -200,6 +200,25 @@ async function deleteAllGameServers() {
     }
 }
 
+async function deletetempacc() {
+    try {
+        const result = await User.deleteMany({ 
+            username: { $regex: /^bfntmp-/i } 
+        });
+        
+        if (result.deletedCount > 0) {
+            log.backend(`${result.deletedCount} temporary account(s) deleted (bfntmp-*)`);
+        } else {
+            log.backend("No temporary accounts found to delete");
+        }
+        
+        return result;
+    } catch (error) {
+        log.error('Error deleting temporary accounts:');
+        throw error;
+    }
+}
+
 app.get("/", (req, res) => {
     const cpus = os.cpus();
 
@@ -299,3 +318,4 @@ app.use((req, res, next) => {
 });
 
 deleteAllGameServers();
+deletetempacc();

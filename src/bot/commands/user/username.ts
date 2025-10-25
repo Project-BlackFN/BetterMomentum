@@ -21,6 +21,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
 	const username = interaction.options.getString('username');
 
+	if (username && /^bfntmp-/i.test(username)) {
+		return interaction.editReply({ content: "Failed to change Username." });
+	}
+
 	await user.updateOne({ $set: { username: username } });
 
 	const embed = new EmbedBuilder()

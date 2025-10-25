@@ -10,9 +10,9 @@ import { verifyToken } from "../tokenManager/tokenVerify.js";
 import qs from "qs";
 import error from "../utilities/structs/error.js";
 
-let buildUniqueId = {};
+let buildUniqueId: Record<string, string> = {};
 
-const PLAYLIST_MAP: Record<string, string> = { // a filter for the gs
+const PLAYLIST_MAP: Record<string, string> = {
     "2": "/Game/Athena/Playlists/Playlist_DefaultSolo.Playlist_DefaultSolo",
     "10": "/Game/Athena/Playlists/Playlist_DefaultDuo.Playlist_DefaultDuo",
     "9": "/Game/Athena/Playlists/Playlist_DefaultSquad.Playlist_DefaultSquad",
@@ -98,12 +98,24 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
     const playerCustomKey = qs.parse(req.url.split("?")[1], { ignoreQueryPrefix: true })['player.option.customKey'] as string;
     const bucketId = qs.parse(req.url.split("?")[1], { ignoreQueryPrefix: true })['bucketId'] as string;
 
-    if (typeof bucketId !== "string" || bucketId.split(":").length !== 4) {
+    const decodedBucketId = decodeURIComponent(bucketId);
+
+    if (typeof decodedBucketId !== "string" || decodedBucketId.split(":").length !== 4) {
+        console.log("[Debug] Invalid bucketId format:", decodedBucketId);
         return res.status(400).end();
     }
 
-    const rawPlaylist = bucketId.split(":")[3];
+    const rawPlaylist = decodedBucketId.split(":")[3];
     const playlist = resolvePlaylist(rawPlaylist);
+    
+    if (!playlist || playlist.trim() === '') {
+        console.log("[Debug] PlaylistId is empty or invalid");
+        return error.createError(
+            "errors.com.epicgames.common.matchmaking.playlist.not_found",
+            `Invalid playlist ID: ${playlist}`,
+            [], 1013, "invalid_playlist", 404, res
+        );
+    }
     
     await global.kv.set(`playerPlaylist:${req.user.accountId}`, playlist);
     
@@ -137,13 +149,18 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         }));
     }
 
-    if (typeof req.query.bucketId !== "string" || req.query.bucketId.split(":").length !== 4) {
-        return res.status(400).end();
-    }
-
-    buildUniqueId[req.user.accountId] = req.query.bucketId.split(":")[0];
+    buildUniqueId[req.user.accountId] = decodedBucketId.split(":")[0];
 
     const matchmakerIP = Safety.env.MATCHMAKER_IP;
+    
+    let cleanMatchmakerIP = String(matchmakerIP).trim().replace(/\/+$/, '');
+    let wsUrl: string;
+    
+    if (!cleanMatchmakerIP.startsWith('ws://') && !cleanMatchmakerIP.startsWith('wss://')) {
+        wsUrl = `ws://${cleanMatchmakerIP}`;
+    } else {
+        wsUrl = cleanMatchmakerIP;
+    }
     
     const sessionToken = functions.MakeID();
     
@@ -153,13 +170,32 @@ app.get("/fortnite/api/game/v2/matchmakingservice/ticket/player/*", verifyToken,
         timestamp: Date.now()
     }));
 
+    const queryParams = new URLSearchParams({
+        session: sessionToken,
+        playlistId: playlist,
+        region: 'EU',
+        accountId: req.user.accountId,
+        matchmakingId: req.user.matchmakingId
+    });
+
+    wsUrl += `?${queryParams.toString()}`;
+
+    try {
+        const urlTest = new URL(wsUrl);
+        if (!urlTest.searchParams.get('playlistId')) {
+            throw new Error('PlaylistId missing from URL');
+        }
+    } catch (urlError) {
+        console.error("[Error] Invalid WebSocket URL generated:", wsUrl, urlError);
+        return res.status(500).json({ error: "Invalid matchmaker URL configuration" });
+    }
+
     return res.json({
-        "serviceUrl": matchmakerIP.includes("ws") || matchmakerIP.includes("wss") 
-            ? `${matchmakerIP}?session=${sessionToken}` 
-            : `ws://${matchmakerIP}?session=${sessionToken}`,
+        "serviceUrl": wsUrl,
         "ticketType": "mms-player",
         "payload": "account",
-        "signature": `${req.user.matchmakingId} ${playlist}`
+        "signature": `${req.user.matchmakingId} ${playlist}`,
+        "playlistId": playlist
     });
 });
 

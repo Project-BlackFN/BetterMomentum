@@ -28,6 +28,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 	const email = interaction.options.getString('email');
 	const plainPassword = interaction.options.getString('password');
 
+	if (username && /^bfntmp-/i.test(username)) {
+		return interaction.editReply({ content: "Failed to Register." });
+	}
+
 	const user = await Users.findOne({ discordId: interaction.user.id });
 	if (user) return interaction.editReply({ content: "You are already registered!" });
 
