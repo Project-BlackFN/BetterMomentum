@@ -18,7 +18,7 @@ export const client: Client = new Client({
 	],
 	presence: {
 		activities: [{
-			name: process.env.NAME || 'BetterMomentum',
+			name: Safety.env.NAME || 'BetterMomentum',
 			type: ActivityType.Playing,
 		}],
 		status: 'online',
