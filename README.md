@@ -15,6 +15,8 @@
   - Avalible Gamemodes will be configurable in .env file (PROGRESS: 100%)
   - Fixed RotateShop (PROGRESS: 100%)
   - Multi Servers (PROGRESS: 100%)
+  - Battle Pass (PROGRESS: 100%)
+  - Give Battle Stars via. API (PROGRESS: 0%)
   - SSL (PROGRESS: 100%)
 
 
